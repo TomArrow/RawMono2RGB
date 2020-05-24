@@ -66,9 +66,9 @@
                         <ColumnDefinition></ColumnDefinition>
                         <ColumnDefinition></ColumnDefinition>
                     </Grid.ColumnDefinitions>
-                    <TextBox x:Name="colorA" Grid.Column="0" Grid.Row="0" FontSize="25" TextAlignment="Center" TextChanged="Color_TextChanged">0</TextBox>
+                    <TextBox x:Name="colorA" Grid.Column="0" Grid.Row="0" FontSize="25" TextAlignment="Center" TextChanged="Color_TextChanged">2</TextBox>
                     <TextBox x:Name="colorB" Grid.Column="1" Grid.Row="0" FontSize="25" TextAlignment="Center" TextChanged="Color_TextChanged">1</TextBox>
-                    <TextBox x:Name="colorC" Grid.Column="2" Grid.Row="0" FontSize="25" TextAlignment="Center" TextChanged="Color_TextChanged">2</TextBox>
+                    <TextBox x:Name="colorC" Grid.Column="2" Grid.Row="0" FontSize="25" TextAlignment="Center" TextChanged="Color_TextChanged">0</TextBox>
 
                 </Grid>
             </WrapPanel>
@@ -99,6 +99,13 @@
             <WrapPanel>
                 <CheckBox x:Name="previewGamma" IsChecked="True" Click="PreviewGamma_Click"></CheckBox>
                 <Label ToolTip="does not affect resulting DNG">Preview with sRGB gamma</Label>
+            </WrapPanel>
+            <WrapPanel>
+                <Label>Target file format:</Label>
+                <StackPanel>
+                    <RadioButton x:Name="formatTif">Linear TIFF</RadioButton>
+                    <RadioButton x:Name="formatExr" IsChecked="True">OpenEXR (Piz)</RadioButton>
+                </StackPanel>
             </WrapPanel>
 
             <Button x:Name="btnProcessFolder" Click="BtnProcessFolder_Click" IsEnabled="False">Process loaded folder</Button>
