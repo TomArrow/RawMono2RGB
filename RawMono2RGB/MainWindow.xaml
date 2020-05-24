@@ -58,8 +58,19 @@
 
             <WrapPanel>
                 <Label>Delay (discard first x images):</Label>
-                <TextBox x:Name="delay" MinWidth="20">0</TextBox>
-                <Label>Delay (discard first x images):</Label>
+                <TextBox x:Name="delay" MinWidth="20" TextChanged="Delay_TextChanged">0</TextBox>
+                <Label>Color order. 0=Red, 1=Green, 2=Blue</Label>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition></ColumnDefinition>
+                        <ColumnDefinition></ColumnDefinition>
+                        <ColumnDefinition></ColumnDefinition>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="colorA" Grid.Column="0" Grid.Row="0" FontSize="25" TextAlignment="Center" TextChanged="Color_TextChanged">0</TextBox>
+                    <TextBox x:Name="colorB" Grid.Column="1" Grid.Row="0" FontSize="25" TextAlignment="Center" TextChanged="Color_TextChanged">1</TextBox>
+                    <TextBox x:Name="colorC" Grid.Column="2" Grid.Row="0" FontSize="25" TextAlignment="Center" TextChanged="Color_TextChanged">2</TextBox>
+
+                </Grid>
             </WrapPanel>
 
             <!--<WrapPanel>

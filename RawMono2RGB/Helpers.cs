@@ -45,7 +45,7 @@ namespace RawMono2RGB
             return newBytes;
         }
 
-        internal static byte[] DrawPreview(byte[] buff, int height, int width, int srcHeight, int srcWidth, int newStride, int byteDepth, int subsample = 4, bool previewGamma = true)
+        internal static byte[] DrawPreview(byte[] buffR,byte[] buffG,byte[] buffB, int height, int width, int srcHeight, int srcWidth, int newStride, int byteDepth, int subsample = 4, bool previewGamma = true)
         {
 
             var newBytes = new byte[newStride * height];
@@ -54,12 +54,22 @@ namespace RawMono2RGB
             {
                 for (var x = 0; x < width; x++)
                 {
-                    double fullValue = (double)BitConverter.ToUInt16(buff,y * subsample * srcWidth * byteDepth + x * subsample * byteDepth)/(double)UInt16.MaxValue;
-                    if(previewGamma) fullValue = fullValue > 0.0031308 ? 1.055 * Math.Pow(fullValue, 1 / 2.4) - 0.055 : 12.92 * fullValue;
-                    fullValue *= 255;
-                    newBytes[y * newStride + x * 3] =(byte)(int)(fullValue);
-                    newBytes[y * newStride + x * 3+1] =(byte)(int)(fullValue);
-                    newBytes[y * newStride + x * 3+2] =(byte)(int)(fullValue);
+                    double fullValueR = (double)BitConverter.ToUInt16(buffR,y * subsample * srcWidth * byteDepth + x * subsample * byteDepth)/(double)UInt16.MaxValue;
+                    double fullValueG = (double)BitConverter.ToUInt16(buffG,y * subsample * srcWidth * byteDepth + x * subsample * byteDepth)/(double)UInt16.MaxValue;
+                    double fullValueB = (double)BitConverter.ToUInt16(buffB,y * subsample * srcWidth * byteDepth + x * subsample * byteDepth)/(double)UInt16.MaxValue;
+                    if (previewGamma)
+                    {
+                        fullValueR = fullValueR > 0.0031308 ? 1.055 * Math.Pow(fullValueR, 1 / 2.4) - 0.055 : 12.92 * fullValueR;
+                        fullValueG = fullValueG > 0.0031308 ? 1.055 * Math.Pow(fullValueG, 1 / 2.4) - 0.055 : 12.92 * fullValueG;
+                        fullValueB = fullValueB > 0.0031308 ? 1.055 * Math.Pow(fullValueB, 1 / 2.4) - 0.055 : 12.92 * fullValueB;
+                    }
+
+                    fullValueR *= 255;
+                    fullValueG *= 255;
+                    fullValueB *= 255;
+                    newBytes[y * newStride + x * 3] =(byte)(int)(fullValueR);
+                    newBytes[y * newStride + x * 3+1] =(byte)(int)(fullValueG);
+                    newBytes[y * newStride + x * 3+2] =(byte)(int)(fullValueB);
                 }
             }
             return newBytes;

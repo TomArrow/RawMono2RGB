@@ -86,6 +86,7 @@ namespace RawMono2RGB
             m_parentExtender = Tiff.SetTagExtender(extender);
         }
 
+        /*
         private void BtnLoadRAW_Click(object sender, RoutedEventArgs e)
         {
             OpenFileDialog ofd = new OpenFileDialog();
@@ -100,15 +101,19 @@ namespace RawMono2RGB
 
                 ProcessRAW(ofd.FileName, fileName);
             }
-        }
+        }*/
 
-        private void ProcessRAW( string srcFilename,string targetFilename)
+        private void ProcessRAW( string[] srcRGBTriplet,string targetFilename)
         {
-            byte[] buff = File.ReadAllBytes(srcFilename);
+
+            byte[] buffR = File.ReadAllBytes(srcRGBTriplet[0]);
+            byte[] buffG = File.ReadAllBytes(srcRGBTriplet[1]);
+            byte[] buffB = File.ReadAllBytes(srcRGBTriplet[2]);
 
 
-            int width = 2448;
-            int height = 2048;
+
+            int width = 4096;
+            int height = 3000;
 
             this.Dispatcher.Invoke(() =>
             {
@@ -116,61 +121,53 @@ namespace RawMono2RGB
                 height = int.Parse(rawHeight.Text);
             });
 
-                string fileName = targetFilename;
+
+            // Interleave
+            int pixelCount = width * height;
+            int totalLength = width * height * 3;
+            byte[] buff = new byte[totalLength*2];
+
+            for(int pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++)
+            {
+                buff[pixelIndex * 3 * 2 +4] = buffR[pixelIndex*2];
+                buff[pixelIndex * 3 * 2 +5] = buffR[pixelIndex * 2 + 1];
+                buff[pixelIndex * 3 * 2 +2] = buffG[pixelIndex * 2];
+                buff[pixelIndex * 3 * 2 +3] = buffG[pixelIndex * 2 + 1];
+                buff[pixelIndex * 3 * 2 ] = buffB[pixelIndex * 2];
+                buff[pixelIndex * 3 * 2 +1  ] = buffB[pixelIndex * 2 + 1];
+            }
+
+            string fileName = targetFilename;
 
                 using (Tiff output = Tiff.Open(fileName, "w"))
                 {
+
+                    output.SetField(TiffTag.SUBFILETYPE, 0);
                     // Basic TIFF functionality
                     output.SetField(TiffTag.IMAGEWIDTH, width);
                     output.SetField(TiffTag.IMAGELENGTH, height);
-                    output.SetField(TiffTag.SAMPLESPERPIXEL, 1);
+                    output.SetField(TiffTag.SAMPLESPERPIXEL, 3);
                     output.SetField(TiffTag.BITSPERSAMPLE, 16);
                     output.SetField(TiffTag.ORIENTATION, Orientation.TOPLEFT);
-                    output.SetField(TiffTag.ROWSPERSTRIP, height);
+                    //output.SetField(TiffTag.ROWSPERSTRIP, height);
                     // output.SetField(TiffTag.COMPRESSION, Compression.ADOBE_DEFLATE);
-                    output.SetField(TiffTag.PHOTOMETRIC, Photometric.MINISBLACK);
+                    output.SetField(TiffTag.PHOTOMETRIC, Photometric.RGB);
                     output.SetField(TiffTag.FILLORDER, FillOrder.MSB2LSB);
-                    //output.SetField(TiffTag.COMPRESSION, Compression.LZW); //LZW doesn't work with DNG apparently
-                    output.SetField(TiffTag.COMPRESSION, Compression.NONE);
+                    output.SetField(TiffTag.COMPRESSION, Compression.LZW); //LZW doesn't work with DNG apparently
+                    //output.SetField(TiffTag.COMPRESSION, Compression.NONE);
 
-                output.SetField(TiffTag.PLANARCONFIG, PlanarConfig.CONTIG);
+                    output.SetField(TiffTag.PLANARCONFIG, PlanarConfig.CONTIG);
 
-                    float[] cam_xyz =
-                    {
-                        3.2404542f, -1.5371385f, -0.4985314f, -0.9692660f, 1.8760108f, 0.0415560f, 0.0556434f,
-                        -0.2040259f, 1.0572252f
-                    }; // my sRGB hack
-                    //float[] cam_xyz =  { 0f, 1f,0f,0f,0f,1f,1f,0f,0f }; // my sRGB hack
-                    float[] neutral = {1f, 1f, 1f}; // my sRGB hack
-                    int[] bpp = {8, 8, 8}; // my sRGB hack
-                    short[] bayerpatterndimensions = {2, 2}; // my sRGB hack
-                    short[] linearizationTable = new short[256];
-                    //float[] neutral = { 0.807133f, 1.0f, 0.913289f };
-
-                    //DNG 
-                    output.SetField(TiffTag.SUBFILETYPE, 0);
-                    output.SetField(TiffTag.MAKE, "Point Grey");
-                    output.SetField(TiffTag.MODEL, "Chameleon3");
-                    output.SetField(TiffTag.SOFTWARE, "FlyCapture2");
-                    output.SetField(TiffTag.DNGVERSION, "\x1\x4\x0\x0");
-                    output.SetField(TiffTag.DNGBACKWARDVERSION, "\x1\x4\x0\x0");
-                    output.SetField(TiffTag.UNIQUECAMERAMODEL, "USB3");
-                    output.SetField(TiffTag.COLORMATRIX1, 9, cam_xyz);
-                    output.SetField(TiffTag.ASSHOTNEUTRAL, 3, neutral);
-                    output.SetField(TiffTag.CALIBRATIONILLUMINANT1, 21);
-                    output.SetField(TiffTag.ORIGINALRAWFILENAME, srcFilename);
-                    output.SetField(TiffTag.PHOTOMETRIC, 32803);
-                    output.SetField(TiffTag.SAMPLESPERPIXEL, 1);
-                    //output.SetField(TiffTag.EXIF_CFAPATTERN, 4, "\x1\x0\x2\x1");
-                    output.SetField(TIFFTAG_CFAREPEATPATTERNDIM, bayerpatterndimensions);
+                /*
 
                     // Maybe use later if necessary:
                     //output.SetField(TiffTag.SAMPLESPERPIXEL, 1);
                     //output.SetField(TiffTag.BITSPERSAMPLE, 3, bpp);
                     //output.SetField(TiffTag.LINEARIZATIONTABLE, 256, linearizationTable);
                     //output.SetField(TiffTag.WHITELEVEL, 1);
+                    */
 
-                    output.WriteEncodedStrip(0, buff, width * height * 2);
+                    output.WriteEncodedStrip(0, buff, width * height * 2*3);
                 }
         } 
 
@@ -224,6 +221,47 @@ namespace RawMono2RGB
             });
         }*/
 
+        // Order of colors
+        private byte[] getColorOrder()
+        {
+            return this.Dispatcher.Invoke(() =>
+            {
+                //0=Red, 1=Green,   2=Blue
+                byte colorAval = (byte)int.Parse(colorA.Text);
+                byte colorBval = (byte)int.Parse(colorB.Text);
+                byte colorCval = (byte)int.Parse(colorC.Text);
+                byte[] colorOrder = { colorAval, colorBval, colorCval };
+                return colorOrder;
+            });
+        }
+        
+        // Similar purpose as getColorOrder,
+        // but the returned array's index is the 3 colors (0 red 1 green 2 blue) and the content is the position
+        private byte[] getRGBPositions()
+        {
+            byte[] colorOrder = getColorOrder();
+            byte[] RGBPositions = new byte[3];
+            for(byte i =0;i<3;i++)
+            {
+                switch (colorOrder[i])
+                {
+                    case 0:
+                        RGBPositions[0] = i;
+                        break;
+                    case 1:
+                        RGBPositions[1] = i;
+                        break;
+                    case 2:
+                        RGBPositions[2] = i;
+                        break;
+                    default:
+                        // User entered some garbage!
+                        break;
+                }
+            }
+            return RGBPositions;
+        }
+
         private void ReDrawPreview()
         {
             if(sourceFolder == null || filesInSourceFolder == null)
@@ -233,26 +271,52 @@ namespace RawMono2RGB
 
             int width = int.Parse(rawWidth.Text);
             int height = int.Parse(rawHeight.Text);
+           
 
             //bool doPreviewDebayer = (bool)previewDebayer.IsChecked;
             bool doPreviewGamma = (bool)previewGamma.IsChecked;
 
+            int frameDelay = int.Parse(delay.Text);
+            byte[] RGBPositions = getRGBPositions();
+
             int sliderNumber = (int)slide_currentFile.Value;
-            int index = sliderNumber - 1;
-            string selectedRawFile = filesInSourceFolder[index];
-            if (!File.Exists(selectedRawFile))
+
+            int baseIndex = (sliderNumber - 1)*3+ frameDelay;
+
+            if((baseIndex + 2) > (filesInSourceFolder.Length -1))
+            {
+                MessageBox.Show("Triplet incomplete.");
+                return;
+            }
+
+            int[] RGBIndizi = new int[3] { baseIndex+RGBPositions[0], baseIndex + RGBPositions[1], baseIndex + RGBPositions[2] };
+
+            string[] RGBFiles = new string[3] { filesInSourceFolder[RGBIndizi[0]], filesInSourceFolder[RGBIndizi[1]] , filesInSourceFolder[RGBIndizi[2]] };
+
+            //string selectedRawFile = filesInSourceFolder[index];
+            /*if (!File.Exists(RGBFiles[0]) || !File.Exists(RGBFiles[1]) || !File.Exists(RGBFiles[2]))
             {
                 MessageBox.Show("weirdo error, apparently file " + selectedRawFile + " (no longer?) exists");
                 return;
             }
-            else
+            else*/
+            foreach(string file in RGBFiles)
+            {
+                if (!File.Exists(file))
+                {
+                    MessageBox.Show("weirdo error, apparently file " + file + " (no longer?) exists");
+                    return;
+                }
+            }
             {
                 int subsample = 4;
 
                 int newWidth = (int)Math.Ceiling((double)width / subsample);
                 int newHeight = (int)Math.Ceiling((double)height / subsample);
 
-                byte[] buff = File.ReadAllBytes(selectedRawFile);
+                byte[] buffR = File.ReadAllBytes(RGBFiles[0]);
+                byte[] buffG = File.ReadAllBytes(RGBFiles[1]);
+                byte[] buffB = File.ReadAllBytes(RGBFiles[2]);
                 int byteDepth = 2; // This is for the source
                 int byteWidth = newWidth * 3; // This is for the preview. 3 means RGB
                 int newStride = Helpers.getStride(byteWidth);
@@ -260,38 +324,7 @@ namespace RawMono2RGB
 
                 byte[] newbytes;
 
-                /*byte[,] bayerPattern = getBayerPattern();
-                if (doPreviewDebayer) {
-                    newbytes = Helpers.DrawBayerPreview(buff, newHeight, newWidth, height, width, newStride, byteDepth, subsample,doPreviewGamma,bayerPattern);
-                } else
-                {
-
-                    newbytes = Helpers.DrawPreview(buff, newHeight, newWidth, height, width, newStride, byteDepth, subsample, doPreviewGamma);
-                }*/
-
-                newbytes = Helpers.DrawPreview(buff, newHeight, newWidth, height, width, newStride, byteDepth, subsample, doPreviewGamma);
-
-                // Draw magnifier rectangle
-                // Position values are in percent from 0 to 1
-                // Explanation: value 0 means left edge at left image border. value 1 means right edge at right image border.
-                /*int magnifierSrcSizeX = 20;
-                int magnifierSrcSizeY = 20;
-                int magnifierPreviewSizeX = (int)Math.Floor((double)magnifierSrcSizeX/subsample);
-                int magnifierPreviewSizeY = (int)Math.Floor((double)magnifierSrcSizeY/ subsample);
-                double magnifierPositionX = magnifierHorizontalPosition.Value;
-                double magnifierPositionY = magnifierVerticalPosition.Value;
-                Rectangle positionSrc = new Rectangle(
-                    Helpers.MinMultipleOfTwo((int)Math.Floor(magnifierPositionX * (width-magnifierSrcSizeX))),  // Using multiple of two function here to not mess up bayer pattern evaluation
-                    Helpers.MinMultipleOfTwo((int)Math.Floor(magnifierPositionY * (height - magnifierSrcSizeY))),
-                    magnifierSrcSizeX,magnifierSrcSizeY);
-                Rectangle positionPreview = new Rectangle(
-                    (int)Math.Floor((double)positionSrc.X/subsample),
-                    (int)Math.Floor((double)positionSrc.Y / subsample),magnifierPreviewSizeX,magnifierPreviewSizeY
-                    );
-                newbytes = Helpers.drawRectangle(newbytes, newWidth, newHeight, positionPreview);
-
-                double[] RGBamplify = { rAmplify.Value, gAmplify.Value, bAmplify.Value };*/
-
+                newbytes = Helpers.DrawPreview(buffR,buffG,buffB, newHeight, newWidth, height, width, newStride, byteDepth, subsample, doPreviewGamma);
 
 
                 // Put preview into WPF image tag
@@ -306,19 +339,9 @@ namespace RawMono2RGB
                 //pixelData.
                 manipulatedImage.UnlockBits(pixelData);
 
-                // Calculate Magnifier
-                //Bitmap magnifierArea = new Bitmap(positionSrc.Width, positionSrc.Height, Imaging.PixelFormat.Format24bppRgb);
-                //pixelData = magnifierArea.LockBits(new Rectangle(0, 0, positionSrc.Width, positionSrc.Height), Imaging.ImageLockMode.WriteOnly, Imaging.PixelFormat.Format24bppRgb);
-                //newbytes = Helpers.DrawMagnifier(buff,positionSrc,width,doPreviewGamma,byteDepth, RGBamplify, bayerPattern);
-
                 System.Runtime.InteropServices.Marshal.Copy(newbytes, 0, pixelData.Scan0, newbytes.Count());
-                //magnifierArea.UnlockBits(pixelData);
-
-                //magnifierArea = Helpers.ResizeBitmapNN(magnifierArea, 200, 200);
-
                 // Do the displaying
                 mainPreview.Source = Helpers.BitmapToImageSource(manipulatedImage);
-                //Magnifier.Source = Helpers.BitmapToImageSource(magnifierArea);
             }
         }
 
@@ -327,14 +350,14 @@ namespace RawMono2RGB
 
             ReDrawPreview();
         }
-
+        /*
         private void PreviewDebayer_Click(object sender, RoutedEventArgs e)
         {
 
             ReDrawPreview();
-        }
+        }*/
 
-        private void ColorBayer_TextChanged(object sender, TextChangedEventArgs e)
+        private void Color_TextChanged(object sender, TextChangedEventArgs e)
         {
             ReDrawPreview();
         }
@@ -392,11 +415,40 @@ namespace RawMono2RGB
             //byte[,] bayerPattern = getBayerPattern();
 
             _totalFiles = filesInSourceFolder.Length;
+            _totalFiles = (int)Math.Floor(filesInSourceFolder.Length/3d);
+
+            List<string[]> completeTriplets = new List<string[]>();
+
+            int frameDelay = 0;
+            byte[] RGBPositions = new byte[1];
+            this.Dispatcher.Invoke(() =>
+            {
+                frameDelay = int.Parse(delay.Text);
+                RGBPositions = getRGBPositions();
+            });
+
+
+            for(int baseIndex = frameDelay; baseIndex < filesInSourceFolder.Length; baseIndex += 3)
+            {
+
+                if ((baseIndex + 2) > (filesInSourceFolder.Length - 1))
+                {
+                    MessageBox.Show("Triplet incomplete. Skipping.");
+                    continue;
+                }
+
+                int[] RGBIndizi = new int[3] { baseIndex + RGBPositions[0], baseIndex + RGBPositions[1], baseIndex + RGBPositions[2] };
+
+                string[] RGBFiles = new string[3] { filesInSourceFolder[RGBIndizi[0]], filesInSourceFolder[RGBIndizi[1]], filesInSourceFolder[RGBIndizi[2]] };
+
+                completeTriplets.Add(RGBFiles);
+            }
+
             var countLock = new object();
             CurrentProgress = 0;
 
-            Parallel.ForEach(filesInSourceFolder,
-                new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, (currentFile, loopState) =>
+            Parallel.ForEach(completeTriplets,
+                new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, (currentTriplet, loopState) =>
                     // foreach (string srcFileName in filesInSourceFolder)
                 {
                     if (worker.CancellationPending == true)
@@ -405,9 +457,11 @@ namespace RawMono2RGB
                         return;
                     }
 
+
+
                     string fileNameWithoutExtension =
-                        targetFolder + "\\" + Path.GetFileNameWithoutExtension(currentFile);
-                    string fileName = fileNameWithoutExtension + ".dng";
+                        targetFolder + "\\" + Path.GetFileNameWithoutExtension(currentTriplet[0]);
+                    string fileName = fileNameWithoutExtension + ".tif";
 
                     _counter++;
                     var percentage = (double)_counter / _totalFiles * 100.0;
@@ -420,7 +474,7 @@ namespace RawMono2RGB
                         return;
                     }
 
-                    ProcessRAW(currentFile, fileName);
+                    ProcessRAW(currentTriplet, fileName);
                 });
 
             txtStatus.Text = "Finished";
@@ -446,6 +500,11 @@ namespace RawMono2RGB
         }
 
         private void Amplify_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            ReDrawPreview();
+        }
+
+        private void Delay_TextChanged(object sender, TextChangedEventArgs e)
         {
             ReDrawPreview();
         }
