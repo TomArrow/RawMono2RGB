@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28307.902
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RawBayer2DNG", "RawBayer2DNG\RawBayer2DNG.csproj", "{98F3FD03-C026-4D27-98BB-BD74F4006B7C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RawMono2RGB", "RawMono2RGB\RawMono2RGB.csproj", "{98F3FD03-C026-4D27-98BB-BD74F4006B7C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
