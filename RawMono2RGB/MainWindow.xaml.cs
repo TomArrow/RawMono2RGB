@@ -24,7 +24,7 @@ using Orientation = BitMiracle.LibTiff.Classic.Orientation;
 using System.Runtime.InteropServices;
 using System.Threading;
 
-namespace RawBayer2DNG
+namespace RawMono2RGB
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -96,21 +96,16 @@ namespace RawBayer2DNG
                 string fileNameWithoutExtension = Path.GetDirectoryName(ofd.FileName) + "\\" + Path.GetFileNameWithoutExtension(ofd.FileName);
                 string fileName = fileNameWithoutExtension + ".dng";
 
-                byte[,] bayerPattern = getBayerPattern();
+                //byte[,] bayerPattern = getBayerPattern();
 
-                ProcessRAW(ofd.FileName, fileName, bayerPattern);
+                ProcessRAW(ofd.FileName, fileName);
             }
         }
 
-        private void ProcessRAW( string srcFilename,string targetFilename, byte[,] bayerPattern)
+        private void ProcessRAW( string srcFilename,string targetFilename)
         {
             byte[] buff = File.ReadAllBytes(srcFilename);
 
-                char[] bayerSubstitution = {"\x0"[0], "\x1"[0], "\x2"[0]};
-
-                string bayerPatternTag = bayerSubstitution[bayerPattern[0, 0]].ToString() +
-                                         bayerSubstitution[bayerPattern[0, 1]] + bayerSubstitution[bayerPattern[1, 0]] +
-                                         bayerSubstitution[bayerPattern[1, 1]];
 
             int width = 2448;
             int height = 2048;
@@ -167,11 +162,7 @@ namespace RawBayer2DNG
                     output.SetField(TiffTag.PHOTOMETRIC, 32803);
                     output.SetField(TiffTag.SAMPLESPERPIXEL, 1);
                     //output.SetField(TiffTag.EXIF_CFAPATTERN, 4, "\x1\x0\x2\x1");
-                    output.SetField(TiffTag.EXIF_CFAPATTERN, 4, bayerPatternTag);
                     output.SetField(TIFFTAG_CFAREPEATPATTERNDIM, bayerpatterndimensions);
-                    //output.SetField(TIFFTAG_CFAPATTERN, "\x1\x0\x2\x1"); //0=Red, 1=Green,   2=Blue,   3=Cyan,   4=Magenta,   5=Yellow,   and   6=White
-                    output.SetField(TIFFTAG_CFAPATTERN,
-                        bayerPatternTag); //0=Red, 1=Green,   2=Blue,   3=Cyan,   4=Magenta,   5=Yellow,   and   6=White
 
                     // Maybe use later if necessary:
                     //output.SetField(TiffTag.SAMPLESPERPIXEL, 1);
@@ -201,8 +192,12 @@ namespace RawBayer2DNG
                 }
                 filesInSourceFolder = Directory.GetFiles(fbd.SelectedPath,"*.raw");
                 currentImagNumber.Text = "1";
-                totalImageCount.Text = filesInSourceFolder.Count().ToString();
-                slide_currentFile.Maximum = filesInSourceFolder.Count();
+                totalImageCount.Text = (Math.Floor(filesInSourceFolder.Count()/3d)).ToString();
+                if(filesInSourceFolder.Count() % 3 != 0)
+                {
+                    MessageBox.Show("Warning: The count of .raw files in the folder is not a multiple of 3. Files may be discarded.");
+                }
+                slide_currentFile.Maximum = (Math.Floor(filesInSourceFolder.Count() / 3d));
                 slide_currentFile.Minimum = 1;
                 slide_currentFile.Value = 1;
                 btnProcessFolder.IsEnabled = true;
@@ -214,7 +209,7 @@ namespace RawBayer2DNG
 
             ReDrawPreview();
         }
-
+        /*
         private byte[,] getBayerPattern()
         {
             return this.Dispatcher.Invoke(() =>
@@ -227,7 +222,7 @@ namespace RawBayer2DNG
                 byte[,] bayerPattern = { { bayerColorA, bayerColorB }, { bayerColorC, bayerColorD } };
                 return bayerPattern;
             });
-        }
+        }*/
 
         private void ReDrawPreview()
         {
@@ -239,7 +234,7 @@ namespace RawBayer2DNG
             int width = int.Parse(rawWidth.Text);
             int height = int.Parse(rawHeight.Text);
 
-            bool doPreviewDebayer = (bool)previewDebayer.IsChecked;
+            //bool doPreviewDebayer = (bool)previewDebayer.IsChecked;
             bool doPreviewGamma = (bool)previewGamma.IsChecked;
 
             int sliderNumber = (int)slide_currentFile.Value;
@@ -265,19 +260,21 @@ namespace RawBayer2DNG
 
                 byte[] newbytes;
 
-                byte[,] bayerPattern = getBayerPattern();
+                /*byte[,] bayerPattern = getBayerPattern();
                 if (doPreviewDebayer) {
                     newbytes = Helpers.DrawBayerPreview(buff, newHeight, newWidth, height, width, newStride, byteDepth, subsample,doPreviewGamma,bayerPattern);
                 } else
                 {
 
                     newbytes = Helpers.DrawPreview(buff, newHeight, newWidth, height, width, newStride, byteDepth, subsample, doPreviewGamma);
-                }
+                }*/
+
+                newbytes = Helpers.DrawPreview(buff, newHeight, newWidth, height, width, newStride, byteDepth, subsample, doPreviewGamma);
 
                 // Draw magnifier rectangle
                 // Position values are in percent from 0 to 1
                 // Explanation: value 0 means left edge at left image border. value 1 means right edge at right image border.
-                int magnifierSrcSizeX = 20;
+                /*int magnifierSrcSizeX = 20;
                 int magnifierSrcSizeY = 20;
                 int magnifierPreviewSizeX = (int)Math.Floor((double)magnifierSrcSizeX/subsample);
                 int magnifierPreviewSizeY = (int)Math.Floor((double)magnifierSrcSizeY/ subsample);
@@ -293,7 +290,7 @@ namespace RawBayer2DNG
                     );
                 newbytes = Helpers.drawRectangle(newbytes, newWidth, newHeight, positionPreview);
 
-                double[] RGBamplify = { rAmplify.Value, gAmplify.Value, bAmplify.Value };
+                double[] RGBamplify = { rAmplify.Value, gAmplify.Value, bAmplify.Value };*/
 
 
 
@@ -310,18 +307,18 @@ namespace RawBayer2DNG
                 manipulatedImage.UnlockBits(pixelData);
 
                 // Calculate Magnifier
-                Bitmap magnifierArea = new Bitmap(positionSrc.Width, positionSrc.Height, Imaging.PixelFormat.Format24bppRgb);
-                pixelData = magnifierArea.LockBits(new Rectangle(0, 0, positionSrc.Width, positionSrc.Height), Imaging.ImageLockMode.WriteOnly, Imaging.PixelFormat.Format24bppRgb);
-                newbytes = Helpers.DrawMagnifier(buff,positionSrc,width,doPreviewGamma,byteDepth, RGBamplify, bayerPattern);
+                //Bitmap magnifierArea = new Bitmap(positionSrc.Width, positionSrc.Height, Imaging.PixelFormat.Format24bppRgb);
+                //pixelData = magnifierArea.LockBits(new Rectangle(0, 0, positionSrc.Width, positionSrc.Height), Imaging.ImageLockMode.WriteOnly, Imaging.PixelFormat.Format24bppRgb);
+                //newbytes = Helpers.DrawMagnifier(buff,positionSrc,width,doPreviewGamma,byteDepth, RGBamplify, bayerPattern);
 
                 System.Runtime.InteropServices.Marshal.Copy(newbytes, 0, pixelData.Scan0, newbytes.Count());
-                magnifierArea.UnlockBits(pixelData);
+                //magnifierArea.UnlockBits(pixelData);
 
-                magnifierArea = Helpers.ResizeBitmapNN(magnifierArea, 200, 200);
+                //magnifierArea = Helpers.ResizeBitmapNN(magnifierArea, 200, 200);
 
                 // Do the displaying
                 mainPreview.Source = Helpers.BitmapToImageSource(manipulatedImage);
-                Magnifier.Source = Helpers.BitmapToImageSource(magnifierArea);
+                //Magnifier.Source = Helpers.BitmapToImageSource(magnifierArea);
             }
         }
 
@@ -392,7 +389,7 @@ namespace RawBayer2DNG
 
         private void worker_DoWork(object sender, DoWorkEventArgs e)
         {
-            byte[,] bayerPattern = getBayerPattern();
+            //byte[,] bayerPattern = getBayerPattern();
 
             _totalFiles = filesInSourceFolder.Length;
             var countLock = new object();
@@ -423,7 +420,7 @@ namespace RawBayer2DNG
                         return;
                     }
 
-                    ProcessRAW(currentFile, fileName, bayerPattern);
+                    ProcessRAW(currentFile, fileName);
                 });
 
             txtStatus.Text = "Finished";

@@ -7,7 +7,7 @@ using System.IO;
 using System.Windows.Media.Imaging;
 using System.Drawing;
 
-namespace RawBayer2DNG
+namespace RawMono2RGB
 {
     class Helpers
     {

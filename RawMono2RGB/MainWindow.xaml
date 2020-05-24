@@ -1,9 +1,9 @@
-﻿<Window x:Class="RawBayer2DNG.MainWindow"
+﻿<Window x:Class="RawMono2RGB.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:RawBayer2DNG"
+        xmlns:local="clr-namespace:RawMono2RGB"
         mc:Ignorable="d"
         DataContext="{Binding RelativeSource={RelativeSource Self}}"
         Title="MainWindow" Height="750" Width="1000">
@@ -16,37 +16,11 @@
             </RowDefinition>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="200"></ColumnDefinition>
             <ColumnDefinition></ColumnDefinition>
             <ColumnDefinition Width="200"></ColumnDefinition>
         </Grid.ColumnDefinitions>
+        
         <StackPanel Grid.Column="0">
-
-            <Label>Magnifier Horizontal Position:</Label>
-            <Slider x:Name="magnifierHorizontalPosition" Maximum="1" Minimum="0" Value="0.5" ValueChanged="MagnifierPosition_ValueChanged"></Slider>
-            <Label>Magnifier Vertical Position:</Label>
-            <Slider x:Name="magnifierVerticalPosition" Maximum="1" Minimum="0" Value="0.5" ValueChanged="MagnifierPosition_ValueChanged"></Slider>
-            <Image x:Name="Magnifier"></Image>
-            <WrapPanel>
-                <StackPanel Width="60">
-                    <Label HorizontalAlignment="Center">R</Label>
-                    <TextBox TextAlignment="Center" x:Name="txtRAmplify">1</TextBox>
-                    <Slider HorizontalAlignment="Center" x:Name="rAmplify" Maximum="1" Minimum="0" Orientation="Vertical" ValueChanged="Amplify_ValueChanged" Value="{Binding ElementName=txtRAmplify,Path=Text,Mode=TwoWay}" Height="200"></Slider>
-                </StackPanel>
-                <StackPanel Width="60">
-                    <Label HorizontalAlignment="Center">G</Label>
-                    <TextBox TextAlignment="Center" x:Name="txtGAmplify">1</TextBox>
-                    <Slider HorizontalAlignment="Center" x:Name="gAmplify" Maximum="1" Minimum="0" Orientation="Vertical" ValueChanged="Amplify_ValueChanged" Value="{Binding ElementName=txtGAmplify,Path=Text,Mode=TwoWay}" Height="200"></Slider>
-                </StackPanel>
-                <StackPanel Width="60">
-                    <Label HorizontalAlignment="Center">B</Label>
-                    <TextBox TextAlignment="Center" x:Name="txtBAmplify">1</TextBox>
-                    <Slider HorizontalAlignment="Center" x:Name="bAmplify" Maximum="1" Minimum="0" Orientation="Vertical" ValueChanged="Amplify_ValueChanged" Value="{Binding ElementName=txtBAmplify,Path=Text,Mode=TwoWay}" Height="200"></Slider>
-                </StackPanel>
-            </WrapPanel>
-        </StackPanel>
-
-        <StackPanel Grid.Column="1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="81*"/>
@@ -58,7 +32,7 @@
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0" Grid.ColumnSpan="2" >
                     <WrapPanel>
-                        <Label>Current image:</Label>
+                        <Label>Current image triple:</Label>
                         <TextBox x:Name="currentImagNumber" MinWidth="50" TextAlignment="Right">0</TextBox>
                         <TextBlock Padding="5 2 5 2"> of</TextBlock>
                         <TextBlock x:Name="totalImageCount" Padding="5 2 5 2">0</TextBlock>
@@ -68,20 +42,27 @@
                 <Image Grid.Row="1" x:Name="mainPreview" MinHeight="300" Grid.ColumnSpan="2"></Image>
             </Grid>
         </StackPanel>
-        <StackPanel Grid.Column="2">
+        <StackPanel Grid.Column="1">
 
             <WrapPanel>
                 <Label>Raw resolution</Label>
-                <TextBox x:Name="rawWidth" MinWidth="20">2448</TextBox>
+                <TextBox x:Name="rawWidth" MinWidth="20">4096</TextBox>
                 <Label>x</Label>
-                <TextBox x:Name="rawHeight" MinWidth="20">2048</TextBox>
+                <TextBox x:Name="rawHeight" MinWidth="20">3000</TextBox>
                 <Label>(set/check resolution first)</Label>
             </WrapPanel>
-            <Button x:Name="btnLoadRAW" Click="BtnLoadRAW_Click">Process single .RAW (same folder)</Button>
+            <!--<Button x:Name="btnLoadRAW" Click="BtnLoadRAW_Click">Process single .RAW (same folder)</Button>-->
             <Button x:Name="btnLoadRAWFolder" Click="BtnLoadRAWFolder_Click">Select folder of .RAW files</Button>
             <Button x:Name="btnLoadTargetFolder" Click="BtnLoadTargetFolder_Click">Select target folder</Button>
 
+
             <WrapPanel>
+                <Label>Delay (discard first x images):</Label>
+                <TextBox x:Name="delay" MinWidth="20">0</TextBox>
+                <Label>Delay (discard first x images):</Label>
+            </WrapPanel>
+
+            <!--<WrapPanel>
                 <CheckBox x:Name="previewDebayer" Click="PreviewDebayer_Click"></CheckBox>
                 <Label ToolTip="does not affect resulting DNG">Preview debayer</Label>
             </WrapPanel>
@@ -103,7 +84,7 @@
                 <TextBox x:Name="colorBayerC" Grid.Column="1" Grid.Row="1" FontSize="25" TextAlignment="Center" TextChanged="ColorBayer_TextChanged">2</TextBox>
                 <TextBox x:Name="colorBayerD" Grid.Column="2" Grid.Row="1" FontSize="25" TextAlignment="Center" TextChanged="ColorBayer_TextChanged">1</TextBox>
 
-            </Grid>
+            </Grid>-->
             <WrapPanel>
                 <CheckBox x:Name="previewGamma" IsChecked="True" Click="PreviewGamma_Click"></CheckBox>
                 <Label ToolTip="does not affect resulting DNG">Preview with sRGB gamma</Label>

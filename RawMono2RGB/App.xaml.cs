@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 
-namespace RawBayer2DNG
+namespace RawMono2RGB
 {
     /// <summary>
     /// Interaction logic for App.xaml
