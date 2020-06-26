@@ -24,6 +24,7 @@ using Orientation = BitMiracle.LibTiff.Classic.Orientation;
 using System.Runtime.InteropServices;
 using System.Threading;
 using ImageMagick;
+using System.Text.RegularExpressions;
 
 namespace RawMono2RGB
 {
@@ -83,8 +84,10 @@ namespace RawMono2RGB
 
             this.Dispatcher.Invoke(() =>
             {
-                width = int.Parse(rawWidth.Text);
-                height = int.Parse(rawHeight.Text);
+                width = 1;
+                int.TryParse(rawWidth.Text,out width);
+                height = 1;
+                int.TryParse(rawHeight.Text,out height);
             });
 
 
@@ -93,7 +96,33 @@ namespace RawMono2RGB
             int totalLength = width * height * 3;
             byte[] buff = new byte[totalLength*2];
 
-            for(int pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++)
+
+            if (buffR.Count() < pixelCount * 2)
+            {
+                this.Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show("Red file too short: "+ srcRGBTriplet[0]);
+                });
+                return;
+            }
+            if (buffG.Count() < pixelCount * 2)
+            {
+                this.Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show("Green file too short: " + srcRGBTriplet[1]);
+                });
+                return;
+            }
+            if (buffB.Count() < pixelCount * 2)
+            {
+                this.Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show("Blue file too short: " + srcRGBTriplet[2]);
+                });
+                return;
+            }
+
+            for (int pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++)
             {
                 
                 // BGR
@@ -154,9 +183,29 @@ namespace RawMono2RGB
                 }
             }
 
-        } 
+        }
 
+        static Regex rawFileFrameNumberRegexp = new Regex(@"[^\d](\d+)\.raw$", RegexOptions.IgnoreCase);
 
+        static int OrderComparisonTwoRawFiles(string file1,string file2)
+        {
+            MatchCollection matches1 = rawFileFrameNumberRegexp.Matches(file1);
+            MatchCollection matches2 = rawFileFrameNumberRegexp.Matches(file2);
+
+            int value1 = 0;
+            int value2 = 0;
+            // Try cach just in case the regexp doesnt give proper results for some reason.
+            try
+            {
+                value1 = int.Parse(matches1[0].Groups[1].Value);
+                value2 = int.Parse(matches2[0].Groups[1].Value);
+            } catch(Exception e)
+            {
+                // Blah
+            }
+
+            return value1.CompareTo(value2);
+        }
 
         private void BtnLoadRAWFolder_Click(object sender, RoutedEventArgs e)
         {
@@ -173,6 +222,11 @@ namespace RawMono2RGB
                     txtTargetFolder.Text = targetFolder;
                 }
                 filesInSourceFolder = Directory.GetFiles(fbd.SelectedPath,"*.raw");
+
+                //Sorting
+                Array.Sort(filesInSourceFolder, OrderComparisonTwoRawFiles);
+
+
                 currentImagNumber.Text = "1";
                 totalImageCount.Text = (Math.Floor(filesInSourceFolder.Count()/3d)).ToString();
                 if(filesInSourceFolder.Count() % 3 != 0)
@@ -198,9 +252,12 @@ namespace RawMono2RGB
             return this.Dispatcher.Invoke(() =>
             {
                 //0=Red, 1=Green,   2=Blue
-                byte colorAval = (byte)int.Parse(colorA.Text);
-                byte colorBval = (byte)int.Parse(colorB.Text);
-                byte colorCval = (byte)int.Parse(colorC.Text);
+                byte colorAval = 0;
+                byte colorBval = 1;
+                byte colorCval = 2;
+                byte.TryParse(colorA.Text, out colorAval);
+                byte.TryParse(colorB.Text, out colorBval);
+                byte.TryParse(colorC.Text, out colorCval);
                 byte[] colorOrder = { colorAval, colorBval, colorCval };
                 return colorOrder;
             });
@@ -240,14 +297,16 @@ namespace RawMono2RGB
                 return; // Nothing to do here
             }
 
-            int width = int.Parse(rawWidth.Text);
-            int height = int.Parse(rawHeight.Text);
+            int width = 1, height = 1;
+            int.TryParse(rawWidth.Text, out width);
+            int.TryParse(rawHeight.Text, out height);
            
 
             //bool doPreviewDebayer = (bool)previewDebayer.IsChecked;
             bool doPreviewGamma = (bool)previewGamma.IsChecked;
 
-            int frameDelay = int.Parse(delay.Text);
+            int frameDelay = 0;
+            int.TryParse(delay.Text, out frameDelay);
             byte[] RGBPositions = getRGBPositions();
 
             int sliderNumber = (int)slide_currentFile.Value;
@@ -263,6 +322,10 @@ namespace RawMono2RGB
             int[] RGBIndizi = new int[3] { baseIndex+RGBPositions[0], baseIndex + RGBPositions[1], baseIndex + RGBPositions[2] };
 
             string[] RGBFiles = new string[3] { filesInSourceFolder[RGBIndizi[0]], filesInSourceFolder[RGBIndizi[1]] , filesInSourceFolder[RGBIndizi[2]] };
+
+            redfile_txt.Text = RGBFiles[0]; 
+            greenfile_txt.Text = RGBFiles[1]; 
+            bluefile_txt.Text = RGBFiles[2]; 
 
             foreach(string file in RGBFiles)
             {
@@ -376,7 +439,8 @@ namespace RawMono2RGB
             bool IsEXR = false;
             this.Dispatcher.Invoke(() =>
             {
-                frameDelay = int.Parse(delay.Text);
+                frameDelay = 0;
+                int.TryParse(delay.Text,out frameDelay);
                 RGBPositions = getRGBPositions();
                 IsTIFF = (bool)formatTif.IsChecked;
                 IsEXR = (bool)formatExr.IsChecked;

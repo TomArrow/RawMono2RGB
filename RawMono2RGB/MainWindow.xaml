@@ -29,6 +29,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="50"></RowDefinition>
                     <RowDefinition Height="*"></RowDefinition>
+                    <RowDefinition Height="100"></RowDefinition>
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0" Grid.ColumnSpan="2" >
                     <WrapPanel>
@@ -40,6 +41,17 @@
                     <Slider VerticalAlignment="Bottom"  Name="slide_currentFile" Value="{Binding ElementName=currentImagNumber,Path=Text,Mode=TwoWay}" Maximum="0" Minimum="0" TickPlacement="BottomRight" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="1" ValueChanged="Slide_currentFile_ValueChanged" ></Slider>
                 </StackPanel>
                 <Image Grid.Row="1" x:Name="mainPreview" MinHeight="300" Grid.ColumnSpan="2"></Image>
+                <StackPanel Grid.Row="2" Grid.ColumnSpan="2">
+                    <WrapPanel><Label>Red:</Label>
+                        <TextBlock x:Name="redfile_txt">---</TextBlock>
+                    </WrapPanel>
+                    <WrapPanel><Label>Green:</Label>
+                    <TextBlock x:Name="greenfile_txt">---</TextBlock>
+                    </WrapPanel>
+                    <WrapPanel><Label>Blue:</Label>
+                    <TextBlock x:Name="bluefile_txt">---</TextBlock>
+                    </WrapPanel>
+                </StackPanel>
             </Grid>
         </StackPanel>
         <StackPanel Grid.Column="1">
