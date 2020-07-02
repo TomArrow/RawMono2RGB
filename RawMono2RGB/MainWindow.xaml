@@ -69,8 +69,17 @@
 
 
             <WrapPanel>
+                <Label>Input format:</Label>
+                <StackPanel>
+                    <RadioButton IsChecked="True" x:Name="formatRadio_mono16" Checked="FormatRadio_Checked">Mono16</RadioButton>
+                    <RadioButton x:Name="formatRadio_mono12p" Checked="FormatRadio_Checked">Mono12p</RadioButton>
+                </StackPanel>
+            </WrapPanel>
+            <WrapPanel>
                 <Label>Delay (discard first x images):</Label>
                 <TextBox x:Name="delay" MinWidth="20" TextChanged="Delay_TextChanged">0</TextBox>
+            </WrapPanel>
+            <WrapPanel>
                 <Label>Color order. 0=Red, 1=Green, 2=Blue</Label>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -111,6 +120,11 @@
             <WrapPanel>
                 <CheckBox x:Name="previewGamma" IsChecked="True" Click="PreviewGamma_Click"></CheckBox>
                 <Label ToolTip="does not affect resulting DNG">Preview with sRGB gamma</Label>
+            </WrapPanel>
+            <WrapPanel>
+
+                <Label>Max threads(0=unlimited):</Label>
+                <TextBox x:Name="maxThreads_txt" MinWidth="20">0</TextBox>
             </WrapPanel>
             <WrapPanel>
                 <Label>Target file format:</Label>

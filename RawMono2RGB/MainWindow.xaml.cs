@@ -66,17 +66,67 @@ namespace RawMono2RGB
         {
             InitializeComponent();
         }
-        
+
+
+        private enum FORMAT { MONO16, MONO12p };
+
+        private FORMAT getInputFormat()
+        {
+            return this.Dispatcher.Invoke(() =>
+            {
+                FORMAT inputFormat = FORMAT.MONO16;
+
+                if ((bool)formatRadio_mono16.IsChecked)
+                {
+                    inputFormat = FORMAT.MONO16;
+                }
+                else if ((bool)formatRadio_mono12p.IsChecked)
+                {
+                    inputFormat = FORMAT.MONO12p;
+                }
+                return inputFormat;
+            });
+        }
+
+        private byte[] convert12pto16bit(byte[] input)
+        {
+            long inputlength = input.Length * 8;
+            long outputLength = inputlength / 12 * 16;
+            long inputlengthBytes = inputlength / 8;
+            long outputLengthBytes = outputLength / 8;
+
+            byte[] output = new byte[outputLengthBytes];
+
+            // For each 3 bytes in input, we write 4 bytes in output
+            for (long i = 0, o = 0; i < inputlengthBytes; i += 3, o += 4)
+            {
+
+                output[o + 1] = (byte)((input[i] & 0b1111_0000) >> 4 | ((input[i + 1] & 0b0000_1111) << 4));
+                output[o] = (byte)((input[i] & 0b0000_1111) << 4);
+                output[o + 3] = (byte)input[i + 2];
+                output[o + 2] = (byte)((input[i + 1] & 0b1111_0000));
+            }
+
+            return output;
+        }
+
+
         private enum TARGETFORMAT { TIF,EXR};
         
 
-        private void ProcessRAW( string[] srcRGBTriplet,string targetFilename, TARGETFORMAT targetFormat)
+        private void ProcessRAW( string[] srcRGBTriplet,string targetFilename, TARGETFORMAT targetFormat, FORMAT inputFormat)
         {
 
             byte[] buffR = File.ReadAllBytes(srcRGBTriplet[0]);
             byte[] buffG = File.ReadAllBytes(srcRGBTriplet[1]);
             byte[] buffB = File.ReadAllBytes(srcRGBTriplet[2]);
 
+            if(inputFormat == FORMAT.MONO12p)
+            {
+                buffR = convert12pto16bit(buffR);
+                buffG = convert12pto16bit(buffG);
+                buffB = convert12pto16bit(buffB);
+            }
 
 
             int width = 4096;
@@ -142,6 +192,8 @@ namespace RawMono2RGB
                 buff[pixelIndex * 3 * 2 + 5] = buffB[pixelIndex * 2 + 1];
                 */
             }
+
+            
 
 
             string fileName = targetFilename;
@@ -437,14 +489,24 @@ namespace RawMono2RGB
             byte[] RGBPositions = new byte[1];
             bool IsTIFF = false;
             bool IsEXR = false;
+            int maxThreads = Environment.ProcessorCount;
             this.Dispatcher.Invoke(() =>
             {
                 frameDelay = 0;
                 int.TryParse(delay.Text,out frameDelay);
+                int.TryParse(maxThreads_txt.Text,out maxThreads);
                 RGBPositions = getRGBPositions();
                 IsTIFF = (bool)formatTif.IsChecked;
                 IsEXR = (bool)formatExr.IsChecked;
             });
+
+            if(maxThreads == 0)
+            {
+                maxThreads = Environment.ProcessorCount;
+            }
+
+
+            FORMAT inputFormat = getInputFormat();
 
             TARGETFORMAT targetFormat = TARGETFORMAT.EXR;
 
@@ -480,7 +542,7 @@ namespace RawMono2RGB
             _counter = 0;
 
             Parallel.ForEach(completeTriplets,
-                new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, (currentTriplet, loopState) =>
+                new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (currentTriplet, loopState) =>
                     // foreach (string srcFileName in filesInSourceFolder)
                 {
                     if (worker.CancellationPending == true)
@@ -503,7 +565,7 @@ namespace RawMono2RGB
                         return;
                     }
 
-                    ProcessRAW(currentTriplet, fileName,targetFormat);
+                    ProcessRAW(currentTriplet, fileName,targetFormat, inputFormat);
                     _counter++;
                     var percentage = (double)_counter / _totalFiles * 100.0;
                     lock (countLock) { worker?.ReportProgress((int)percentage); }
@@ -537,6 +599,12 @@ namespace RawMono2RGB
         }
 
         private void Delay_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            ReDrawPreview();
+        }
+
+
+        private void FormatRadio_Checked(object sender, RoutedEventArgs e)
         {
             ReDrawPreview();
         }
