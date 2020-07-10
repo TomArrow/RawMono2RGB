@@ -37,7 +37,7 @@ namespace RawMono2RGB
         private const TiffTag TIFFTAG_CFAREPEATPATTERNDIM = (TiffTag)33421;
         private const TiffTag TIFFTAG_CFAPATTERN = (TiffTag)33422;
 
-        private static Tiff.TiffExtendProc m_parentExtender;
+        //private static Tiff.TiffExtendProc m_parentExtender;
         private BackgroundWorker worker = new BackgroundWorker();
 
         string sourceFolder = null;
@@ -45,7 +45,10 @@ namespace RawMono2RGB
         string[] filesInSourceFolder = null;
         private int currentProgress;
         private string currentStatus;
-        private static int _counter = 0;
+        private static int _counterTotal = 0;
+        private static int _counterDone = 0;
+        private static int _counterSkippedExisting = 0;
+        private static int _counterSkippedRange = 0;
         private static int _totalFiles = 0;
 
         // Declare the event
@@ -114,7 +117,7 @@ namespace RawMono2RGB
         private enum TARGETFORMAT { TIF,EXR};
         
 
-        private void ProcessRAW( string[] srcRGBTriplet,string targetFilename, TARGETFORMAT targetFormat, FORMAT inputFormat)
+        private void ProcessRAW( string[] srcRGBTriplet,string targetFilename, TARGETFORMAT targetFormat, FORMAT inputFormat,int maxThreads)
         {
 
             byte[] buffR = File.ReadAllBytes(srcRGBTriplet[0]);
@@ -174,7 +177,7 @@ namespace RawMono2RGB
 
             for (int pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++)
             {
-                
+                /*
                 // BGR
                 buff[pixelIndex * 3 * 2] = buffB[pixelIndex * 2];
                 buff[pixelIndex * 3 * 2 + 1] = buffB[pixelIndex * 2 + 1];
@@ -182,7 +185,7 @@ namespace RawMono2RGB
                 buff[pixelIndex * 3 * 2 +5] = buffR[pixelIndex * 2 + 1];
                 buff[pixelIndex * 3 * 2 +2] = buffG[pixelIndex * 2];
                 buff[pixelIndex * 3 * 2 +3] = buffG[pixelIndex * 2 + 1];
-                /*
+                */
                 // RGB
                 buff[pixelIndex * 3 * 2] = buffR[pixelIndex * 2];
                 buff[pixelIndex * 3 * 2 + 1] = buffR[pixelIndex * 2 + 1];
@@ -190,9 +193,8 @@ namespace RawMono2RGB
                 buff[pixelIndex * 3 * 2 + 3] = buffG[pixelIndex * 2 + 1];
                 buff[pixelIndex * 3 * 2 + 4] = buffB[pixelIndex * 2];
                 buff[pixelIndex * 3 * 2 + 5] = buffB[pixelIndex * 2 + 1];
-                */
+                
             }
-
             
 
 
@@ -200,25 +202,30 @@ namespace RawMono2RGB
 
             if(targetFormat == TARGETFORMAT.EXR)
             {
+                ResourceLimits.Thread = (ulong)maxThreads;
 
                 MagickReadSettings settings = new MagickReadSettings();
                 settings.Width = width;
                 settings.Height = height;
-                settings.Format = MagickFormat.Rgb; // WRONG. It's actually Bgr, but this seems wrongly implemented im Magick.
+                settings.Format = MagickFormat.Rgb; // Correction, this is actually right, I had flipped RGB to BGR elsewhere in the code before. Fixed now.
                 using (var image = new MagickImage(buff, settings))
                 {
+                    //ExifProfile profile = new ExifProfile();
+                    //profile.SetValue(ExifTag.UserComment, Encoding.ASCII.GetBytes(srcRGBTriplet[0] + "," + srcRGBTriplet[1] + "," + srcRGBTriplet[2]));
+                    //image.SetProfile(profile);
                     image.Format = MagickFormat.Exr;
                     image.Settings.Compression = CompressionMethod.Piz;
-                    image.Write(fileName + ".exr");
+                    image.Write(fileName);
                 }
             }
             else if (targetFormat == TARGETFORMAT.TIF)
             {
 
-                using (Tiff output = Tiff.Open(fileName + ".tif", "w"))
+                using (Tiff output = Tiff.Open(fileName, "w"))
                 {
 
                     output.SetField(TiffTag.SUBFILETYPE, 0);
+                    //output.SetField(TiffTag.ORIGINALRAWFILENAME, srcRGBTriplet[0]+","+srcRGBTriplet[1]+","+srcRGBTriplet[2]);
                     output.SetField(TiffTag.IMAGEWIDTH, width);
                     output.SetField(TiffTag.IMAGELENGTH, height);
                     output.SetField(TiffTag.SAMPLESPERPIXEL, 3);
@@ -280,8 +287,12 @@ namespace RawMono2RGB
 
 
                 currentImagNumber.Text = "1";
-                totalImageCount.Text = (Math.Floor(filesInSourceFolder.Count()/3d)).ToString();
-                if(filesInSourceFolder.Count() % 3 != 0)
+                int tripletCount = (int) Math.Floor(filesInSourceFolder.Count() / 3d);
+                totalImageCount.Text = tripletCount.ToString();
+                processToMax_txt.Text = "("+ tripletCount.ToString()+")";
+                processFrom_txt.Text = "1";
+                processTo_txt.Text = tripletCount.ToString();
+                if (filesInSourceFolder.Count() % 3 != 0)
                 {
                     MessageBox.Show("Warning: The count of .raw files in the folder is not a multiple of 3. Files may be discarded.");
                 }
@@ -388,7 +399,8 @@ namespace RawMono2RGB
                 }
             }
             {
-                int subsample = 4;
+                int subsample = 8;
+                int.TryParse(previewSubsample_txt.Text, out subsample);
 
                 int newWidth = (int)Math.Ceiling((double)width / subsample);
                 int newHeight = (int)Math.Ceiling((double)height / subsample);
@@ -480,7 +492,7 @@ namespace RawMono2RGB
         private void worker_DoWork(object sender, DoWorkEventArgs e)
         {
 
-            _totalFiles = filesInSourceFolder.Length;
+            //_totalFiles = filesInSourceFolder.Length;
             _totalFiles = (int)Math.Floor(filesInSourceFolder.Length/3d);
 
             List<string[]> completeTriplets = new List<string[]>();
@@ -490,14 +502,20 @@ namespace RawMono2RGB
             bool IsTIFF = false;
             bool IsEXR = false;
             int maxThreads = Environment.ProcessorCount;
+            string customOutputName = "";
+            int leadingZeros = 0;
+            bool overwriteExisting = false;
             this.Dispatcher.Invoke(() =>
             {
                 frameDelay = 0;
                 int.TryParse(delay.Text,out frameDelay);
+                int.TryParse(outputNameLeadingZeros_txt.Text,out leadingZeros);
                 int.TryParse(maxThreads_txt.Text,out maxThreads);
                 RGBPositions = getRGBPositions();
                 IsTIFF = (bool)formatTif.IsChecked;
                 IsEXR = (bool)formatExr.IsChecked;
+                customOutputName = outputNameBase_txt.Text;
+                overwriteExisting = !(bool)overwrite_no.IsChecked && (bool)overwrite_yes.IsChecked;
             });
 
             if(maxThreads == 0)
@@ -536,38 +554,66 @@ namespace RawMono2RGB
                 completeTriplets.Add(RGBFiles);
             }
 
+            int processFrom = 1;
+            int processTo = completeTriplets.Count(); 
+            this.Dispatcher.Invoke(() =>
+            {
+                int.TryParse(processFrom_txt.Text, out processFrom);
+                int.TryParse(processTo_txt.Text, out processTo);
+            });
+
+            // Index starting at 0, but GUI starts at 1
+            processFrom--;
+            processTo--;
+
+
             var countLock = new object();
             CurrentProgress = 0;
 
-            _counter = 0;
+            _counterTotal = 0;
+            _counterSkippedRange = 0;
+            _counterDone = 0;
+            _counterSkippedExisting = 0;
 
             Parallel.ForEach(completeTriplets,
-                new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (currentTriplet, loopState) =>
+                new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (currentTriplet, loopState,index) =>
                     // foreach (string srcFileName in filesInSourceFolder)
                 {
+
+                    _counterTotal++;
+                    var percentage = (double)_counterTotal / _totalFiles * 100.0;
                     if (worker.CancellationPending == true)
                     {
                         e.Cancel = true;
                         return;
                     }
 
-
-
-                    string fileNameWithoutExtension =
-                        targetFolder + "\\" + Path.GetFileNameWithoutExtension(currentTriplet[0]);
-                    string fileName = fileNameWithoutExtension;
-
-
-                    if (File.Exists(fileName))
+                    if(index < processFrom || index > processTo)
                     {
-                        // Error: File already exists. No overwriting. Move on.
-                        //continue;
+                        // Skip this one.
+                        _counterSkippedRange++;
+                        lock (countLock) { worker?.ReportProgress((int)percentage); }
                         return;
                     }
 
-                    ProcessRAW(currentTriplet, fileName,targetFormat, inputFormat);
-                    _counter++;
-                    var percentage = (double)_counter / _totalFiles * 100.0;
+                    string fileNameWithoutFolder = customOutputName == "" ? Path.GetFileNameWithoutExtension(currentTriplet[0]) : customOutputName + (leadingZeros == 0 ? index.ToString() : index.ToString("D"+leadingZeros.ToString()));
+
+                    string fileNameWithoutExtension =
+                        targetFolder + "\\" + fileNameWithoutFolder;
+                    string fileName = fileNameWithoutExtension + (targetFormat == TARGETFORMAT.EXR ? ".exr" : "") + (targetFormat == TARGETFORMAT.TIF ? ".tif" : "");
+
+
+                    if (File.Exists(fileName) && !overwriteExisting)
+                    {
+                        // Error: File already exists. No overwriting. Move on.
+                        //continue;
+                        _counterSkippedExisting++;
+                        lock (countLock) { worker?.ReportProgress((int)percentage); }
+                        return;
+                    }
+
+                    ProcessRAW(currentTriplet, fileName,targetFormat, inputFormat,maxThreads);
+                    _counterDone++;
                     lock (countLock) { worker?.ReportProgress((int)percentage); }
                 });
 
@@ -578,7 +624,7 @@ namespace RawMono2RGB
         {
             // pbStatus.Value = e.ProgressPercentage;
             CurrentProgress = e.ProgressPercentage;
-            txtStatus.Text = $"Processed {_counter} out of {_totalFiles}";
+            txtStatus.Text = $"Processed {_counterTotal} out of {_totalFiles}. {_counterDone} successful, {_counterSkippedExisting} skipped (file exists), {_counterSkippedRange} skipped (not in selected range)";
            
             //this.Dispatcher.BeginInvoke(new Action(() => { pbStatus.Value = e.ProgressPercentage; }));
         }
@@ -607,6 +653,12 @@ namespace RawMono2RGB
         private void FormatRadio_Checked(object sender, RoutedEventArgs e)
         {
             ReDrawPreview();
+        }
+
+        private void PreviewSubsample_txt_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            ReDrawPreview();
+
         }
     }
 }

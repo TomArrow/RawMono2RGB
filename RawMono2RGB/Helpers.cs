@@ -67,9 +67,11 @@ namespace RawMono2RGB
                     fullValueR *= 255;
                     fullValueG *= 255;
                     fullValueB *= 255;
-                    newBytes[y * newStride + x * 3] =(byte)(int)(fullValueR);
+
+                    // C# needs BGR!
+                    newBytes[y * newStride + x * 3] =(byte)(int)(fullValueB);
                     newBytes[y * newStride + x * 3+1] =(byte)(int)(fullValueG);
-                    newBytes[y * newStride + x * 3+2] =(byte)(int)(fullValueB);
+                    newBytes[y * newStride + x * 3+2] =(byte)(int)(fullValueR);
                 }
             }
             return newBytes;
