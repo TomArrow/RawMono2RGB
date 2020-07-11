@@ -1,4 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Weavers xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FodyWeavers.xsd">
-  <Costura />
+  <Costura>
+		<Unmanaged64Assemblies>
+		  Costura64\Magick.Native-Q16-HDRI-OpenMP-x64.dll
+		  Costura64\vcomp140
+		</Unmanaged64Assemblies>
+	</Costura>
 </Weavers>
