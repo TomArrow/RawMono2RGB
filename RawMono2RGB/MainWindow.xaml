@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:RawMono2RGB"
         mc:Ignorable="d"
         DataContext="{Binding RelativeSource={RelativeSource Self}}"
-        Title="MainWindow" Height="750" Width="1000">
+        Title="RawMono2RGB" Height="750" Width="1000">
 
 
     <Grid>
@@ -94,7 +94,7 @@
             <!--<Button x:Name="btnLoadRAW" Click="BtnLoadRAW_Click">Process single .RAW (same folder)</Button>-->
             <Button x:Name="btnLoadRAWFolder" Click="BtnLoadRAWFolder_Click">Select folder of .RAW files</Button>
             <Button x:Name="btnLoadTargetFolder" Click="BtnLoadTargetFolder_Click">Select target folder</Button>
-
+            <Button x:Name="btnSaveOrderedList" Click="BtnSaveOrderedList_Click" IsEnabled="False">Save ordered list</Button>
 
             
             

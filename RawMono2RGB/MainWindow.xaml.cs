@@ -300,6 +300,7 @@ namespace RawMono2RGB
                 slide_currentFile.Minimum = 1;
                 slide_currentFile.Value = 1;
                 btnProcessFolder.IsEnabled = true;
+                btnSaveOrderedList.IsEnabled = true;
             }
         }
 
@@ -489,6 +490,38 @@ namespace RawMono2RGB
             }
         }
 
+        private List<string[]> getTriplets()
+        {
+
+            List<string[]> completeTriplets = new List<string[]>();
+            int frameDelay = 0;
+            byte[] RGBPositions = new byte[1];
+            this.Dispatcher.Invoke(() =>
+            {
+                frameDelay = 0;
+                int.TryParse(delay.Text, out frameDelay);
+                RGBPositions = getRGBPositions();
+            });
+
+            for (int baseIndex = frameDelay; baseIndex < filesInSourceFolder.Length; baseIndex += 3)
+            {
+
+                if ((baseIndex + 2) > (filesInSourceFolder.Length - 1))
+                {
+                    MessageBox.Show("Triplet incomplete. Skipping.");
+                    continue;
+                }
+
+                int[] RGBIndizi = new int[3] { baseIndex + RGBPositions[0], baseIndex + RGBPositions[1], baseIndex + RGBPositions[2] };
+
+                string[] RGBFiles = new string[3] { filesInSourceFolder[RGBIndizi[0]], filesInSourceFolder[RGBIndizi[1]], filesInSourceFolder[RGBIndizi[2]] };
+
+                completeTriplets.Add(RGBFiles);
+            }
+            return completeTriplets;
+
+        }
+
         private void worker_DoWork(object sender, DoWorkEventArgs e)
         {
 
@@ -659,6 +692,35 @@ namespace RawMono2RGB
         {
             ReDrawPreview();
 
+        }
+
+        private void BtnSaveOrderedList_Click(object sender, RoutedEventArgs e)
+        {
+            string output = "Ordered file list: \r\n";
+            foreach(string filename in filesInSourceFolder)
+            {
+                output += filename + "\r\n";
+            }
+
+            List<string[]> completeTriplets = getTriplets();
+
+            output += "\r\nList of all triplets:\r\n";
+
+            foreach(string[] triplet in completeTriplets)
+            {
+                output += "Red: " + triplet[0]+"\r\n";
+                output += "Green: " + triplet[1]+"\r\n";
+                output += "Blue: " + triplet[2]+"\r\n";
+                output += "--------------------------------------------------------------------------\r\n";
+            }
+
+            SaveFileDialog sfd = new SaveFileDialog();
+            sfd.Filter = "Text files (.txt)|*.txt";
+            sfd.FileName = "list.txt";
+            if (sfd.ShowDialog() == true)
+            {
+                File.WriteAllText(sfd.FileName, output);
+            }
         }
     }
 }
