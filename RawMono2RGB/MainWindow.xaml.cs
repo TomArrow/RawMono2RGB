@@ -389,9 +389,11 @@ namespace RawMono2RGB
 
             redfile_txt.Text = RGBFiles[0]; 
             greenfile_txt.Text = RGBFiles[1]; 
-            bluefile_txt.Text = RGBFiles[2]; 
+            bluefile_txt.Text = RGBFiles[2];
 
-            foreach(string file in RGBFiles)
+            FORMAT inputFormat = getInputFormat();
+
+            foreach (string file in RGBFiles)
             {
                 if (!File.Exists(file))
                 {
@@ -412,6 +414,14 @@ namespace RawMono2RGB
                 int byteDepth = 2; // This is for the source
                 int byteWidth = newWidth * 3; // This is for the preview. 3 means RGB
                 int newStride = Helpers.getStride(byteWidth);
+
+
+                if (inputFormat == FORMAT.MONO12p)
+                {
+                    buffR = convert12pto16bit(buffR);
+                    buffG = convert12pto16bit(buffG);
+                    buffB = convert12pto16bit(buffB);
+                }
 
                 byte[] newbytes;
 
