@@ -73,6 +73,20 @@ namespace RawMono2RGB
 
         private enum FORMAT { MONO16, MONO12p };
 
+
+        private enum CHANNELCOLOR { RED, GREEN, BLUE };
+
+        private struct ShotSettings
+        {
+            CHANNELCOLOR channelColor;
+            float exposureMultiplier;
+        }
+
+        private ShotSettings[] getShots()
+        {
+
+        }
+
         private FORMAT getInputFormat()
         {
             return this.Dispatcher.Invoke(() =>
