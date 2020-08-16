@@ -76,15 +76,104 @@ namespace RawMono2RGB
 
         private enum CHANNELCOLOR { RED, GREEN, BLUE };
 
-        private struct ShotSettings
+        private struct ShotSetting
         {
-            CHANNELCOLOR channelColor;
-            float exposureMultiplier;
+            public CHANNELCOLOR channelColor;
+            public double exposureMultiplier;
         }
 
-        private ShotSettings[] getShots()
-        {
+        static Regex shotSettingTextRegexp = new Regex(@"(R|G|B|X)(?:(\+|\-|\*|\/)(\d+))?", RegexOptions.IgnoreCase);
 
+        private ShotSetting[] getShots()
+        {
+            string[] shotTexts = { colorA.Text, colorB.Text, colorC.Text, colorD.Text, colorE.Text, colorF.Text };
+            List<ShotSetting> shotSettings = new List<ShotSetting>();
+
+            for(int i=0; i<6; i++)
+            {
+
+                if(shotTexts[i].Trim() == "")
+                {
+                    // nothing
+                }
+                else
+                {
+                    ShotSetting shotSettingTemp = new ShotSetting();
+
+                    MatchCollection matches = shotSettingTextRegexp.Matches(shotTexts[i]);
+
+                    // Try cach just in case the regexp doesnt give proper results for some reason.
+                    try
+                    {
+                        string color = matches[0].Groups[1].Value.ToUpper();
+                        string operater = matches[0].Groups[2].Value;
+                        string number = matches[0].Groups[3].Value;
+
+                        double numberParsed= 1;
+                        bool numberParsingSuccessful = double.TryParse(number, out numberParsed);
+
+                        bool isEmpty = false;
+
+                        switch (color)
+                        {
+                            case "R":
+                                shotSettingTemp.channelColor = CHANNELCOLOR.RED;
+                                break;
+                            case "G":
+                                shotSettingTemp.channelColor = CHANNELCOLOR.GREEN;
+                                break;
+                            case "B":
+                                shotSettingTemp.channelColor = CHANNELCOLOR.BLUE;
+                                break;
+                            case "X":
+                                isEmpty = true;
+                                break;
+                            default:
+                                break;
+                        }
+
+                        // If the number wasn't parsed properly, may as well stop here.
+                        if (!isEmpty && numberParsingSuccessful)
+                        {
+                            switch (operater)
+                            {
+                                case "+":
+                                    shotSettingTemp.exposureMultiplier = Math.Pow(2, numberParsed);
+                                    break;
+                                case "*":
+                                    shotSettingTemp.exposureMultiplier = numberParsed;
+                                    break;
+
+                                case "-":
+                                case "/":
+                                default:
+                                    // Not implemented. Always declare the overexposed shots!
+                                    shotSettingTemp.exposureMultiplier = 1;
+                                    break;
+                            }
+                        }
+
+                        if (!isEmpty)
+                        {
+
+                            shotSettings.Add(shotSettingTemp);
+                        }
+                        else
+                        {
+
+                            // nothing
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        MessageBox.Show("Some weird error parsing the shot settings.");
+                    }
+                }
+
+               
+            }
+
+            return shotSettings.ToArray();
         }
 
         private FORMAT getInputFormat()
@@ -745,6 +834,11 @@ namespace RawMono2RGB
             {
                 File.WriteAllText(sfd.FileName, output);
             }
+        }
+
+        private void PreviewExposure_txt_TextChanged(object sender, TextChangedEventArgs e)
+        {
+
         }
     }
 }
