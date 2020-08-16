@@ -518,7 +518,7 @@ namespace RawMono2RGB
 
                 if ((baseIndex + 2) > (filesInSourceFolder.Length - 1))
                 {
-                    MessageBox.Show("Triplet incomplete. Skipping.");
+                    MessageBox.Show("Triplet incomplete. Skipping."); // TODO make these so they dont have to be clicked or sth
                     continue;
                 }
 
