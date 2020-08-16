@@ -78,6 +78,7 @@ namespace RawMono2RGB
 
         private struct ShotSetting
         {
+            public int orderIndex;
             public CHANNELCOLOR channelColor;
             public double exposureMultiplier;
         }
@@ -89,6 +90,8 @@ namespace RawMono2RGB
             string[] shotTexts = { colorA.Text, colorB.Text, colorC.Text, colorD.Text, colorE.Text, colorF.Text };
             List<ShotSetting> shotSettings = new List<ShotSetting>();
 
+            int index = 0;
+
             for(int i=0; i<6; i++)
             {
 
@@ -99,6 +102,8 @@ namespace RawMono2RGB
                 else
                 {
                     ShotSetting shotSettingTemp = new ShotSetting();
+                    shotSettingTemp.exposureMultiplier = 1;
+                    shotSettingTemp.orderIndex = index;
 
                     MatchCollection matches = shotSettingTextRegexp.Matches(shotTexts[i]);
 
@@ -155,8 +160,8 @@ namespace RawMono2RGB
 
                         if (!isEmpty)
                         {
-
                             shotSettings.Add(shotSettingTemp);
+                            index++;
                         }
                         else
                         {
@@ -170,10 +175,28 @@ namespace RawMono2RGB
                     }
                 }
 
-               
+
             }
 
+            // Order by color and exposure
+            // Color order is primary order: R, G, B
+            // Exposure order: Starting with smallest exposure multiplier.
+            shotSettings.Sort(OrderComparisonTwoShotSettings);
+
             return shotSettings.ToArray();
+        }
+        
+        static int OrderComparisonTwoShotSettings(ShotSetting shotSetting1, ShotSetting shotSetting2)
+        {
+            int tmpCompare = shotSetting1.channelColor.CompareTo(shotSetting2.channelColor);
+
+            if(tmpCompare != 0)
+            {
+                return tmpCompare;
+            } else
+            {
+                return shotSetting1.exposureMultiplier.CompareTo(shotSetting2.exposureMultiplier);
+            }
         }
 
         private FORMAT getInputFormat()
@@ -218,22 +241,23 @@ namespace RawMono2RGB
 
 
         private enum TARGETFORMAT { TIF,EXR};
-        
 
-        private void ProcessRAW( string[] srcRGBTriplet,string targetFilename, TARGETFORMAT targetFormat, FORMAT inputFormat,int maxThreads)
+
+        private void ProcessRAW(string[] srcRGBTriplet, ShotSetting[] shotSettings,string targetFilename, TARGETFORMAT targetFormat, FORMAT inputFormat,int maxThreads)
         {
 
-            byte[] buffR = File.ReadAllBytes(srcRGBTriplet[0]);
-            byte[] buffG = File.ReadAllBytes(srcRGBTriplet[1]);
-            byte[] buffB = File.ReadAllBytes(srcRGBTriplet[2]);
+            int groupLength = shotSettings.Length;
 
-            if(inputFormat == FORMAT.MONO12p)
-            {
-                buffR = convert12pto16bit(buffR);
-                buffG = convert12pto16bit(buffG);
-                buffB = convert12pto16bit(buffB);
+            byte[][] buffers = new byte[groupLength][]; 
+            for(int i = 0;i < groupLength; i++){
+
+                buffers[i] = File.ReadAllBytes(srcRGBTriplet[i]);
+                if (inputFormat == FORMAT.MONO12p)
+                {
+                    buffers[i] = convert12pto16bit(buffers[i]);
+                }
             }
-
+            
 
             int width = 4096;
             int height = 3000;
@@ -246,6 +270,12 @@ namespace RawMono2RGB
                 int.TryParse(rawHeight.Text,out height);
             });
 
+
+            byte[][] RGBBuffers = HDRMerge(buffers, shotSettings);
+
+            byte[] buffR = RGBBuffers[0];
+            byte[] buffG = RGBBuffers[1];
+            byte[] buffB = RGBBuffers[2];
 
             // Interleave
             int pixelCount = width * height;
@@ -349,6 +379,68 @@ namespace RawMono2RGB
 
         static Regex rawFileFrameNumberRegexp = new Regex(@"[^\d](\d+)\.raw$", RegexOptions.IgnoreCase);
 
+        // returns R, G and B buffers with HDR merge already performed.
+        // Expects 16 bit linear input.
+        private byte[][] HDRMerge(byte[][] buffers, ShotSetting[] shotSettings)
+        {
+
+            byte[][] outputBuffers = new byte[3][] { new byte [buffers[0].Length ], new byte[buffers[0].Length], new byte[buffers[0].Length] };
+
+            int singleBufferLength = buffers[0].Length;
+            
+            // Do one color after another
+            for (var colorIndex = 0; colorIndex < 3; colorIndex++)
+            {
+                int thisColorIndex = 0;
+                double thisColorMultiplierMultiplier = 1;
+                for(var shotSettingIndex = 0; shotSettingIndex < shotSettings.Length; shotSettingIndex++)
+                {
+                    ShotSetting thisShotSetting = shotSettings[shotSettingIndex];
+                    if (colorIndex == (int)thisShotSetting.channelColor)
+                    {
+                        // first image of each set just has its buffer copied for speed reasons
+                        if(thisColorIndex == 0)
+                        {
+                            outputBuffers[colorIndex] = buffers[thisShotSetting.orderIndex];
+                            // The darkest image's multiplier should technically be 1 by default. But if it isn't, we use this to normalize the following images.
+                            // For example, if the darkest image multiplier is 2, we record the "multiplier multiplier" as 0.5, as we aren't actually multiplying this image data by 2
+                            // and as a result we need to reduce the image multiplier of following images by multiplying it with 0.5.
+                            thisColorMultiplierMultiplier = 1 / thisShotSetting.exposureMultiplier; 
+                        }
+
+                        // Do actual HDR merging
+                        else
+                        {
+                            double effectiveMultiplier = thisColorMultiplierMultiplier * thisShotSetting.exposureMultiplier;
+                            for(var i=0;i< singleBufferLength; i += 2) // 16 bit steps
+                            {
+                                double currentOutputValue = (double)BitConverter.ToUInt16(outputBuffers[colorIndex], i) / (double)UInt16.MaxValue;
+                                double currentInputValue = (double)BitConverter.ToUInt16(buffers[thisShotSetting.orderIndex], i) / (double)UInt16.MaxValue;
+                                bool isClipping = currentInputValue > 0.99;
+                                if (!isClipping)
+                                {
+                                    currentInputValue /= effectiveMultiplier;
+                                    UInt16 finalValue = (UInt16)Math.Round(currentInputValue * (double)UInt16.MaxValue);
+                                    byte[] sixteenbitbytes = BitConverter.GetBytes(finalValue);
+                                    outputBuffers[colorIndex][i] = sixteenbitbytes[0];
+                                    outputBuffers[colorIndex][i+1] = sixteenbitbytes[1];
+                                }
+                            }
+
+
+                        }
+                        thisColorIndex++;
+                    }
+                }
+
+
+
+                    
+            }
+
+            return outputBuffers;
+        }
+
         static int OrderComparisonTwoRawFiles(string file1,string file2)
         {
             MatchCollection matches1 = rawFileFrameNumberRegexp.Matches(file1);
@@ -371,6 +463,10 @@ namespace RawMono2RGB
 
         private void BtnLoadRAWFolder_Click(object sender, RoutedEventArgs e)
         {
+
+            ShotSetting[] shotSettings = getShots();
+            int groupLength = shotSettings.Length;
+
             var fbd = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog();
             bool? result = fbd.ShowDialog();
 
@@ -390,16 +486,16 @@ namespace RawMono2RGB
 
 
                 currentImagNumber.Text = "1";
-                int tripletCount = (int) Math.Floor(filesInSourceFolder.Count() / 3d);
-                totalImageCount.Text = tripletCount.ToString();
-                processToMax_txt.Text = "("+ tripletCount.ToString()+")";
+                int groupCount = (int) Math.Floor(filesInSourceFolder.Count() / (double)groupLength);
+                totalImageCount.Text = groupCount.ToString();
+                processToMax_txt.Text = "("+ groupCount.ToString()+")";
                 processFrom_txt.Text = "1";
-                processTo_txt.Text = tripletCount.ToString();
-                if (filesInSourceFolder.Count() % 3 != 0)
+                processTo_txt.Text = groupCount.ToString();
+                if (filesInSourceFolder.Count() % groupLength != 0)
                 {
-                    MessageBox.Show("Warning: The count of .raw files in the folder is not a multiple of 3. Files may be discarded.");
+                    MessageBox.Show("Warning: The count of .raw files in the folder is not a multiple of the group length ("+groupLength.ToString()+"). Files may be discarded.");
                 }
-                slide_currentFile.Maximum = (Math.Floor(filesInSourceFolder.Count() / 3d));
+                slide_currentFile.Maximum = (Math.Floor(filesInSourceFolder.Count() / (double)groupLength));
                 slide_currentFile.Minimum = 1;
                 slide_currentFile.Value = 1;
                 btnProcessFolder.IsEnabled = true;
@@ -413,6 +509,8 @@ namespace RawMono2RGB
             ReDrawPreview();
         }
 
+
+        /*
         // Order of colors
         private byte[] getColorOrder()
         {
@@ -455,7 +553,7 @@ namespace RawMono2RGB
                 }
             }
             return RGBPositions;
-        }
+        }*/
 
         private void ReDrawPreview()
         {
@@ -467,36 +565,50 @@ namespace RawMono2RGB
             int width = 1, height = 1;
             int.TryParse(rawWidth.Text, out width);
             int.TryParse(rawHeight.Text, out height);
-           
+
+            ShotSetting[] shotSettings = getShots();
+            int groupLength = shotSettings.Length;
+
 
             //bool doPreviewDebayer = (bool)previewDebayer.IsChecked;
             bool doPreviewGamma = (bool)previewGamma.IsChecked;
 
             int frameDelay = 0;
             int.TryParse(delay.Text, out frameDelay);
-            byte[] RGBPositions = getRGBPositions();
+            //byte[] RGBPositions = getRGBPositions();
 
             int sliderNumber = (int)slide_currentFile.Value;
 
-            int baseIndex = (sliderNumber - 1)*3+ frameDelay;
+            int baseIndex = (sliderNumber - 1)*groupLength+ frameDelay;
 
-            if((baseIndex + 2) > (filesInSourceFolder.Length -1))
+            if((baseIndex + (groupLength-1)) > (filesInSourceFolder.Length -1))
             {
-                MessageBox.Show("Triplet incomplete.");
+                MessageBox.Show("Group incomplete.");
                 return;
             }
 
-            int[] RGBIndizi = new int[3] { baseIndex+RGBPositions[0], baseIndex + RGBPositions[1], baseIndex + RGBPositions[2] };
+            int[] fileIndizi = new int[groupLength]; //{ baseIndex+RGBPositions[0], baseIndex + RGBPositions[1], baseIndex + RGBPositions[2] };
+            string[] files = new string[groupLength];
 
-            string[] RGBFiles = new string[3] { filesInSourceFolder[RGBIndizi[0]], filesInSourceFolder[RGBIndizi[1]] , filesInSourceFolder[RGBIndizi[2]] };
+            string currentFileStringForGUI = "";
 
-            redfile_txt.Text = RGBFiles[0]; 
-            greenfile_txt.Text = RGBFiles[1]; 
-            bluefile_txt.Text = RGBFiles[2];
+            for(int i = 0; i<groupLength;i++)
+            {
+                fileIndizi[i] = baseIndex + i;
+                files[i] = filesInSourceFolder[baseIndex + i];
+            }
+            for (int i = 0; i < groupLength; i++)
+            {
+                currentFileStringForGUI += shotSettings[i].channelColor + "*" + shotSettings[i].exposureMultiplier + ": " + files[shotSettings[i].orderIndex] + "\n";
+            }
+
+            //string[] RGBFiles = new string[3] { filesInSourceFolder[RGBIndizi[0]], filesInSourceFolder[RGBIndizi[1]] , filesInSourceFolder[RGBIndizi[2]] };
+
+            filesInfo_txt.Text = currentFileStringForGUI;
 
             FORMAT inputFormat = getInputFormat();
 
-            foreach (string file in RGBFiles)
+            foreach (string file in files)
             {
                 if (!File.Exists(file))
                 {
@@ -511,24 +623,25 @@ namespace RawMono2RGB
                 int newWidth = (int)Math.Ceiling((double)width / subsample);
                 int newHeight = (int)Math.Ceiling((double)height / subsample);
 
-                byte[] buffR = File.ReadAllBytes(RGBFiles[0]);
-                byte[] buffG = File.ReadAllBytes(RGBFiles[1]);
-                byte[] buffB = File.ReadAllBytes(RGBFiles[2]);
+                byte[][] buffers = new byte[groupLength][];
+                for (int i = 0; i < groupLength; i++)
+                {
+                    buffers[i] = File.ReadAllBytes(files[i]);
+                    if (inputFormat == FORMAT.MONO12p)
+                    {
+                        buffers[i] = convert12pto16bit(buffers[i]);
+                    }
+                }
+
                 int byteDepth = 2; // This is for the source
                 int byteWidth = newWidth * 3; // This is for the preview. 3 means RGB
                 int newStride = Helpers.getStride(byteWidth);
 
-
-                if (inputFormat == FORMAT.MONO12p)
-                {
-                    buffR = convert12pto16bit(buffR);
-                    buffG = convert12pto16bit(buffG);
-                    buffB = convert12pto16bit(buffB);
-                }
-
                 byte[] newbytes;
 
-                newbytes = Helpers.DrawPreview(buffR,buffG,buffB, newHeight, newWidth, height, width, newStride, byteDepth, subsample, doPreviewGamma);
+                byte[][] mergedRGBbuffers = HDRMerge(buffers, shotSettings);
+
+                newbytes = Helpers.DrawPreview(mergedRGBbuffers[0], mergedRGBbuffers[1], mergedRGBbuffers[2], newHeight, newWidth, height, width, newStride, byteDepth, subsample, doPreviewGamma);
 
 
                 // Put preview into WPF image tag
@@ -605,9 +718,9 @@ namespace RawMono2RGB
 
         private List<string[]> getTriplets()
         {
-
+            
             List<string[]> completeTriplets = new List<string[]>();
-            int frameDelay = 0;
+            /*int frameDelay = 0;
             byte[] RGBPositions = new byte[1];
             this.Dispatcher.Invoke(() =>
             {
@@ -631,8 +744,8 @@ namespace RawMono2RGB
 
                 completeTriplets.Add(RGBFiles);
             }
+            */
             return completeTriplets;
-
         }
 
         private void worker_DoWork(object sender, DoWorkEventArgs e)
@@ -641,10 +754,11 @@ namespace RawMono2RGB
             //_totalFiles = filesInSourceFolder.Length;
             _totalFiles = (int)Math.Floor(filesInSourceFolder.Length/3d);
 
-            List<string[]> completeTriplets = new List<string[]>();
+            List<string[]> completeGroups = new List<string[]>();
 
             int frameDelay = 0;
-            byte[] RGBPositions = new byte[1];
+            //byte[] RGBPositions = new byte[1];
+            ShotSetting[] shotSettings = new ShotSetting[3];
             bool IsTIFF = false;
             bool IsEXR = false;
             int maxThreads = Environment.ProcessorCount;
@@ -657,12 +771,15 @@ namespace RawMono2RGB
                 int.TryParse(delay.Text,out frameDelay);
                 int.TryParse(outputNameLeadingZeros_txt.Text,out leadingZeros);
                 int.TryParse(maxThreads_txt.Text,out maxThreads);
-                RGBPositions = getRGBPositions();
+                //RGBPositions = getRGBPositions();
+                shotSettings = getShots();
                 IsTIFF = (bool)formatTif.IsChecked;
                 IsEXR = (bool)formatExr.IsChecked;
                 customOutputName = outputNameBase_txt.Text;
                 overwriteExisting = !(bool)overwrite_no.IsChecked && (bool)overwrite_yes.IsChecked;
             });
+
+            int groupLength = shotSettings.Length;
 
             if(maxThreads == 0)
             {
@@ -684,24 +801,32 @@ namespace RawMono2RGB
             }
 
 
-            for (int baseIndex = frameDelay; baseIndex < filesInSourceFolder.Length; baseIndex += 3)
+            for (int baseIndex = frameDelay; baseIndex < filesInSourceFolder.Length; baseIndex += groupLength)
             {
 
-                if ((baseIndex + 2) > (filesInSourceFolder.Length - 1))
+                if ((baseIndex + (groupLength-1)) > (filesInSourceFolder.Length - 1))
                 {
-                    MessageBox.Show("Triplet incomplete. Skipping.");
+                    MessageBox.Show("Group incomplete. Skipping.");
                     continue;
                 }
 
-                int[] RGBIndizi = new int[3] { baseIndex + RGBPositions[0], baseIndex + RGBPositions[1], baseIndex + RGBPositions[2] };
+                int[] fileIndizi = new int[groupLength];
+                string[] files = new string[groupLength];
+                for (var i = 0; i < groupLength; i++)
+                {
+                    fileIndizi[i] = baseIndex + i;
+                    files[i] = filesInSourceFolder[baseIndex + i];
+                }
 
-                string[] RGBFiles = new string[3] { filesInSourceFolder[RGBIndizi[0]], filesInSourceFolder[RGBIndizi[1]], filesInSourceFolder[RGBIndizi[2]] };
+                //int[] RGBIndizi = new int[groupLength] { baseIndex + RGBPositions[0], baseIndex + RGBPositions[1], baseIndex + RGBPositions[2] };
 
-                completeTriplets.Add(RGBFiles);
+                //string[] RGBFiles = new string[groupLength] { filesInSourceFolder[RGBIndizi[0]], filesInSourceFolder[RGBIndizi[1]], filesInSourceFolder[RGBIndizi[2]] };
+
+                completeGroups.Add(files);
             }
 
             int processFrom = 1;
-            int processTo = completeTriplets.Count(); 
+            int processTo = completeGroups.Count(); 
             this.Dispatcher.Invoke(() =>
             {
                 int.TryParse(processFrom_txt.Text, out processFrom);
@@ -721,8 +846,8 @@ namespace RawMono2RGB
             _counterDone = 0;
             _counterSkippedExisting = 0;
 
-            Parallel.ForEach(completeTriplets,
-                new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (currentTriplet, loopState,index) =>
+            Parallel.ForEach(completeGroups,
+                new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (currentGroup, loopState,index) =>
                     // foreach (string srcFileName in filesInSourceFolder)
                 {
 
@@ -742,7 +867,7 @@ namespace RawMono2RGB
                         return;
                     }
 
-                    string fileNameWithoutFolder = customOutputName == "" ? Path.GetFileNameWithoutExtension(currentTriplet[0]) : customOutputName + (leadingZeros == 0 ? index.ToString() : index.ToString("D"+leadingZeros.ToString()));
+                    string fileNameWithoutFolder = customOutputName == "" ? Path.GetFileNameWithoutExtension(currentGroup[0]) : customOutputName + (leadingZeros == 0 ? index.ToString() : index.ToString("D"+leadingZeros.ToString()));
 
                     string fileNameWithoutExtension =
                         targetFolder + "\\" + fileNameWithoutFolder;
@@ -758,7 +883,7 @@ namespace RawMono2RGB
                         return;
                     }
 
-                    ProcessRAW(currentTriplet, fileName,targetFormat, inputFormat,maxThreads);
+                    ProcessRAW(currentGroup,shotSettings, fileName,targetFormat, inputFormat,maxThreads);
                     _counterDone++;
                     lock (countLock) { worker?.ReportProgress((int)percentage); }
                 });
@@ -809,6 +934,7 @@ namespace RawMono2RGB
 
         private void BtnSaveOrderedList_Click(object sender, RoutedEventArgs e)
         {
+            /* TODO FIX/ADAPT to HDR mode
             string output = "Ordered file list: \r\n";
             foreach(string filename in filesInSourceFolder)
             {
@@ -834,6 +960,7 @@ namespace RawMono2RGB
             {
                 File.WriteAllText(sfd.FileName, output);
             }
+            */
         }
 
         private void PreviewExposure_txt_TextChanged(object sender, TextChangedEventArgs e)

@@ -42,14 +42,8 @@
                 </StackPanel>
                 <Image Grid.Row="1" x:Name="mainPreview" MinHeight="300" Grid.ColumnSpan="2"></Image>
                 <StackPanel Grid.Row="2" Grid.ColumnSpan="2">
-                    <WrapPanel><Label>Red:</Label>
-                        <TextBlock x:Name="redfile_txt">---</TextBlock>
-                    </WrapPanel>
-                    <WrapPanel><Label>Green:</Label>
-                    <TextBlock x:Name="greenfile_txt">---</TextBlock>
-                    </WrapPanel>
-                    <WrapPanel><Label>Blue:</Label>
-                    <TextBlock x:Name="bluefile_txt">---</TextBlock>
+                    <WrapPanel><Label>Files Info:</Label>
+                        <TextBlock x:Name="filesInfo_txt">---</TextBlock>
                     </WrapPanel>
                 </StackPanel>
             </Grid>
@@ -88,10 +82,10 @@
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="colorA" Grid.Column="0" Grid.Row="0" FontSize="15" MinWidth="40" TextAlignment="Center" TextChanged="Color_TextChanged">R</TextBox>
                             <TextBox x:Name="colorB" Grid.Column="1" Grid.Row="0" FontSize="15" MinWidth="40" TextAlignment="Center" TextChanged="Color_TextChanged">R+4</TextBox>
-                            <TextBox x:Name="colorC" Grid.Column="2" Grid.Row="0" FontSize="15" MinWidth="40" TextAlignment="Center" TextChanged="Color_TextChanged">B</TextBox>
-                            <TextBox x:Name="colorD" Grid.Column="3" Grid.Row="0" FontSize="15" MinWidth="40" TextAlignment="Center" TextChanged="Color_TextChanged">B+4</TextBox>
-                            <TextBox x:Name="colorE" Grid.Column="4" Grid.Row="0" FontSize="15" MinWidth="40" TextAlignment="Center" TextChanged="Color_TextChanged">G</TextBox>
-                            <TextBox x:Name="colorF" Grid.Column="5" Grid.Row="0" FontSize="15" MinWidth="40" TextAlignment="Center" TextChanged="Color_TextChanged">G+4</TextBox>
+                            <TextBox x:Name="colorC" Grid.Column="2" Grid.Row="0" FontSize="15" MinWidth="40" TextAlignment="Center" TextChanged="Color_TextChanged">G</TextBox>
+                            <TextBox x:Name="colorD" Grid.Column="3" Grid.Row="0" FontSize="15" MinWidth="40" TextAlignment="Center" TextChanged="Color_TextChanged">G+4</TextBox>
+                            <TextBox x:Name="colorE" Grid.Column="4" Grid.Row="0" FontSize="15" MinWidth="40" TextAlignment="Center" TextChanged="Color_TextChanged">B</TextBox>
+                            <TextBox x:Name="colorF" Grid.Column="5" Grid.Row="0" FontSize="15" MinWidth="40" TextAlignment="Center" TextChanged="Color_TextChanged">B+4</TextBox>
 
                         </Grid>
                     </WrapPanel>
