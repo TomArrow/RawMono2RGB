@@ -85,6 +85,27 @@ namespace RawMono2RGB
 
         static Regex shotSettingTextRegexp = new Regex(@"(R|G|B|X)(?:(\+|\-|\*|\/)(\d+))?", RegexOptions.IgnoreCase);
 
+
+
+        private double getHDRClippingpoint()
+        {
+            double clippingPoint = 0.99;
+            double.TryParse(clippingPoint_txt.Text, out clippingPoint);
+            return clippingPoint;
+        }
+
+        private double getFeatherStops()
+        {
+            double featherStops = 0;
+            double.TryParse(featherStops_txt.Text, out featherStops);
+            return featherStops;
+        }
+
+        private double getFeatherMultiplier()
+        {
+            return Math.Pow(2, -getFeatherStops());
+        }
+
         private ShotSetting[] getShots()
         {
             string[] shotTexts = { colorA.Text, colorB.Text, colorC.Text, colorD.Text, colorE.Text, colorF.Text };
@@ -243,7 +264,7 @@ namespace RawMono2RGB
         private enum TARGETFORMAT { TIF,EXR};
 
 
-        private void ProcessRAW(string[] srcRGBTriplet, ShotSetting[] shotSettings,string targetFilename, TARGETFORMAT targetFormat, FORMAT inputFormat,int maxThreads)
+        private void ProcessRAW(string[] srcRGBTriplet, ShotSetting[] shotSettings,string targetFilename, TARGETFORMAT targetFormat, FORMAT inputFormat,int maxThreads, double HDRClippingPoint,double HDRFeatherMultiplier)
         {
 
             int groupLength = shotSettings.Length;
@@ -271,7 +292,7 @@ namespace RawMono2RGB
             });
 
 
-            byte[][] RGBBuffers = HDRMerge(buffers, shotSettings);
+            byte[][] RGBBuffers = HDRMerge(buffers, shotSettings,HDRClippingPoint,HDRFeatherMultiplier);
 
             byte[] buffR = RGBBuffers[0];
             byte[] buffG = RGBBuffers[1];
@@ -381,12 +402,22 @@ namespace RawMono2RGB
 
         // returns R, G and B buffers with HDR merge already performed.
         // Expects 16 bit linear input.
-        private byte[][] HDRMerge(byte[][] buffers, ShotSetting[] shotSettings)
+        private byte[][] HDRMerge(byte[][] buffers, ShotSetting[] shotSettings,double clippingPoint, double featherMultiplier)
         {
+
+            double featherBottomIntensity = clippingPoint;
+            double featherRange = 0;
+            if(featherMultiplier != 1)
+            {
+                featherBottomIntensity *= featherMultiplier;
+                featherRange = clippingPoint - featherBottomIntensity;
+            }
 
             byte[][] outputBuffers = new byte[3][] { new byte [buffers[0].Length ], new byte[buffers[0].Length], new byte[buffers[0].Length] };
 
             int singleBufferLength = buffers[0].Length;
+
+            double maxValue = 0;
             
             // Do one color after another
             for (var colorIndex = 0; colorIndex < 3; colorIndex++)
@@ -416,11 +447,23 @@ namespace RawMono2RGB
                             {
                                 double currentOutputValue = (double)BitConverter.ToUInt16(outputBuffers[colorIndex], i) / (double)UInt16.MaxValue;
                                 double currentInputValue = (double)BitConverter.ToUInt16(buffers[thisShotSetting.orderIndex], i) / (double)UInt16.MaxValue;
-                                bool isClipping = currentInputValue > 0.99;
+                                if(currentInputValue > maxValue) { maxValue = currentInputValue; }
+                                bool isClipping = currentInputValue > clippingPoint;
                                 if (!isClipping)
                                 {
-                                    currentInputValue /= effectiveMultiplier;
-                                    UInt16 finalValue = (UInt16)Math.Round(currentInputValue * (double)UInt16.MaxValue);
+                                    UInt16 finalValue = 0;
+                                    if (featherMultiplier < 1 && currentInputValue > featherBottomIntensity && featherRange != 0)
+                                    {
+                                        double inputIntensity = (featherRange-(clippingPoint - currentInputValue))/featherRange;
+                                        currentInputValue /= effectiveMultiplier;
+                                        double tmpValue = inputIntensity * currentInputValue + (1 - inputIntensity) * currentOutputValue;
+                                        finalValue = (UInt16)Math.Round(tmpValue * (double)UInt16.MaxValue);
+                                    } else
+                                    {
+                                        currentInputValue /= effectiveMultiplier;
+                                        finalValue = (UInt16)Math.Round(currentInputValue * (double)UInt16.MaxValue);
+                                    }
+
                                     byte[] sixteenbitbytes = BitConverter.GetBytes(finalValue);
                                     outputBuffers[colorIndex][i] = sixteenbitbytes[0];
                                     outputBuffers[colorIndex][i+1] = sixteenbitbytes[1];
@@ -437,6 +480,8 @@ namespace RawMono2RGB
 
                     
             }
+
+            //MessageBox.Show(maxValue.ToString());
 
             return outputBuffers;
         }
@@ -573,11 +618,16 @@ namespace RawMono2RGB
             //bool doPreviewDebayer = (bool)previewDebayer.IsChecked;
             bool doPreviewGamma = (bool)previewGamma.IsChecked;
 
+            double HDRClippingPoint = getHDRClippingpoint();
+            double HDRFeatherMultiplier = getFeatherMultiplier();
+
             int frameDelay = 0;
             int.TryParse(delay.Text, out frameDelay);
             //byte[] RGBPositions = getRGBPositions();
 
             int sliderNumber = (int)slide_currentFile.Value;
+
+            double previewExposureMultiplier = Math.Pow(2,previewExposure_slider.Value);
 
             int baseIndex = (sliderNumber - 1)*groupLength+ frameDelay;
 
@@ -639,9 +689,9 @@ namespace RawMono2RGB
 
                 byte[] newbytes;
 
-                byte[][] mergedRGBbuffers = HDRMerge(buffers, shotSettings);
+                byte[][] mergedRGBbuffers = HDRMerge(buffers, shotSettings,HDRClippingPoint,HDRFeatherMultiplier);
 
-                newbytes = Helpers.DrawPreview(mergedRGBbuffers[0], mergedRGBbuffers[1], mergedRGBbuffers[2], newHeight, newWidth, height, width, newStride, byteDepth, subsample, doPreviewGamma);
+                newbytes = Helpers.DrawPreview(mergedRGBbuffers[0], mergedRGBbuffers[1], mergedRGBbuffers[2], newHeight, newWidth, height, width, newStride, byteDepth, subsample, doPreviewGamma, previewExposureMultiplier);
 
 
                 // Put preview into WPF image tag
@@ -765,6 +815,8 @@ namespace RawMono2RGB
             string customOutputName = "";
             int leadingZeros = 0;
             bool overwriteExisting = false;
+            double HDRClippingPoint = 0.99;
+            double HDRFeatherMultiplier = 1;
             this.Dispatcher.Invoke(() =>
             {
                 frameDelay = 0;
@@ -777,6 +829,8 @@ namespace RawMono2RGB
                 IsEXR = (bool)formatExr.IsChecked;
                 customOutputName = outputNameBase_txt.Text;
                 overwriteExisting = !(bool)overwrite_no.IsChecked && (bool)overwrite_yes.IsChecked;
+                HDRClippingPoint = getHDRClippingpoint();
+                HDRFeatherMultiplier = getFeatherMultiplier();
             });
 
             int groupLength = shotSettings.Length;
@@ -883,7 +937,7 @@ namespace RawMono2RGB
                         return;
                     }
 
-                    ProcessRAW(currentGroup,shotSettings, fileName,targetFormat, inputFormat,maxThreads);
+                    ProcessRAW(currentGroup,shotSettings, fileName,targetFormat, inputFormat,maxThreads,HDRClippingPoint,HDRFeatherMultiplier);
                     _counterDone++;
                     lock (countLock) { worker?.ReportProgress((int)percentage); }
                 });
@@ -966,6 +1020,11 @@ namespace RawMono2RGB
         private void PreviewExposure_txt_TextChanged(object sender, TextChangedEventArgs e)
         {
 
+        }
+
+        private void PreviewExposure_slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            ReDrawPreview();
         }
     }
 }

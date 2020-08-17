@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:RawMono2RGB"
         mc:Ignorable="d"
         DataContext="{Binding RelativeSource={RelativeSource Self}}"
-        Title="RawMono2RGB" Height="850" Width="1000">
+        Title="RawMono2RGB" Height="1000" Width="1000">
 
 
     <Grid>
@@ -139,8 +139,24 @@
                     <WrapPanel>
 
                         <Label ToolTip="">Preview exposure compensation:</Label>
-                        <Slider x:Name="previewExposure_slider" Maximum="5" Minimum="-5" Width="200" TickFrequency="1" IsSnapToTickEnabled="True" TickPlacement="Both" Value="0"></Slider>
+                        <Slider x:Name="previewExposure_slider" Maximum="10" Minimum="-10" Width="200" TickFrequency="2" IsSnapToTickEnabled="True" TickPlacement="Both" Value="0"  ValueChanged="PreviewExposure_slider_ValueChanged"></Slider>
                     </WrapPanel>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="HDR Processing Settings" Padding="5">
+                <StackPanel>
+
+                    <WrapPanel>
+                        <Label ToolTip="The clipping point in the overexposed image at which the darker exposure is taken instead of the brighter. Necessary to set because possibly due to weirdness of ADCs a clipped pixel isn't always EXACTLY perfect white, only almost.">Clipping point</Label>
+                        <TextBox x:Name="clippingPoint_txt">0.99</TextBox>
+                    </WrapPanel>
+
+                    <WrapPanel>
+                        <Label ToolTip="How many stops (from the clipping point downwards) should be averaged between the brighter and darker exposure? Potentially reduces artifacts (play around and see), but can result in bigger files due to increased precision. Can be left at zero to deactivate feathering.">"Feather stops"</Label>
+                        <TextBox x:Name="featherStops_txt">0</TextBox>
+                    </WrapPanel>
+                    
                 </StackPanel>
             </GroupBox>
             <GroupBox Header="Output" Padding="5">
