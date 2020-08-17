@@ -26,6 +26,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using ImageMagick;
 using System.Text.RegularExpressions;
+using System.Collections.ObjectModel;
 
 namespace RawMono2RGB
 {
@@ -418,82 +419,121 @@ namespace RawMono2RGB
 
             int singleBufferLength = buffers[0].Length;
 
-            double maxValue = 0;
+            //double maxValue = 0;
 
-            float thisColorMultiplierMultiplier;
-            int thisColorIndex;
-            ShotSetting thisShotSetting;
-            float effectiveMultiplier;
-            float currentOutputValue;
-            float currentInputValue;
-            bool isClipping;
-            UInt16 finalValue;
-            float inputIntensity;
-            float tmpValue;
-            byte[] sixteenbitbytes;
-            double Uint16MaxValueDouble = (double)UInt16.MaxValue;
+            //double Uint16MaxValueDouble = (double)UInt16.MaxValue;
             float Uint16MaxValueFloat = (float)UInt16.MaxValue;
-            Vector2 Uint16Divider = new Vector2();
+
 
             // Do one color after another
-            for (var colorIndex = 0; colorIndex < 3; colorIndex++)
+            Parallel.For(0, 3, (colorIndex, state) =>
+            //for (var colorIndex = 0; colorIndex < 3; colorIndex++)
             {
+
+
+                Vector2 Uint16Divider = new Vector2();
+                float thisColorMultiplierMultiplier;
+                int thisColorIndex;
+                ShotSetting thisShotSetting;
+                float effectiveMultiplier;
+                float currentOutputValue;
+                float currentInputValue;
+                bool isClipping;
+                UInt16 finalValue;
+                float inputIntensity;
+                float tmpValue;
+                byte[] sixteenbitbytes;
+
+
                 thisColorIndex = 0;
                 thisColorMultiplierMultiplier = 1;
-                for(var shotSettingIndex = 0; shotSettingIndex < shotSettings.Length; shotSettingIndex++)
+                for (var shotSettingIndex = 0; shotSettingIndex < shotSettings.Length; shotSettingIndex++)
                 {
                     thisShotSetting = shotSettings[shotSettingIndex];
                     if (colorIndex == (int)thisShotSetting.channelColor)
                     {
                         // first image of each set just has its buffer copied for speed reasons
-                        if(thisColorIndex == 0)
+                        if (thisColorIndex == 0)
                         {
                             outputBuffers[colorIndex] = buffers[thisShotSetting.orderIndex];
                             // The darkest image's multiplier should technically be 1 by default. But if it isn't, we use this to normalize the following images.
                             // For example, if the darkest image multiplier is 2, we record the "multiplier multiplier" as 0.5, as we aren't actually multiplying this image data by 2
                             // and as a result we need to reduce the image multiplier of following images by multiplying it with 0.5.
-                            thisColorMultiplierMultiplier = 1 / thisShotSetting.exposureMultiplier; 
+                            thisColorMultiplierMultiplier = 1 / thisShotSetting.exposureMultiplier;
                         }
 
                         // Do actual HDR merging
                         else
                         {
                             effectiveMultiplier = thisColorMultiplierMultiplier * thisShotSetting.exposureMultiplier;
-                            for(var i=0;i< singleBufferLength; i += 2) // 16 bit steps
+
+                            if (featherMultiplier < 1 && featherRange != 0)
                             {
-                                Uint16Divider.X = (float)BitConverter.ToUInt16(outputBuffers[colorIndex], i);
-                                Uint16Divider.Y = (float)BitConverter.ToUInt16(buffers[thisShotSetting.orderIndex], i);
-
-
-                                /*currentOutputValue = (double)BitConverter.ToUInt16(outputBuffers[colorIndex], i) / Uint16MaxValueDouble;
-                                currentInputValue = (double)BitConverter.ToUInt16(buffers[thisShotSetting.orderIndex], i) / Uint16MaxValueDouble;*/
-                                Uint16Divider = Vector2.Divide(Uint16Divider, Uint16MaxValueFloat);
-                                currentOutputValue = Uint16Divider.X;
-                                currentInputValue = Uint16Divider.Y;
-
-                                if(currentInputValue > maxValue) { maxValue = currentInputValue; }
-                                isClipping = currentInputValue > clippingPoint;
-                                if (!isClipping)
+                                for (var i = 0; i < singleBufferLength; i += 2) // 16 bit steps
                                 {
-                                    finalValue = 0;
-                                    if (featherMultiplier < 1 && currentInputValue > featherBottomIntensity && featherRange != 0)
-                                    {
-                                        inputIntensity = (featherRange-(clippingPoint - currentInputValue))/featherRange;
-                                        currentInputValue /= effectiveMultiplier;
-                                        tmpValue = inputIntensity * currentInputValue + (1 - inputIntensity) * currentOutputValue;
-                                        finalValue = (UInt16)Math.Round(tmpValue * Uint16MaxValueDouble);
-                                    } else
-                                    {
-                                        currentInputValue /= effectiveMultiplier;
-                                        finalValue = (UInt16)Math.Round(currentInputValue * Uint16MaxValueDouble);
-                                    }
+                                    Uint16Divider.X = (float)BitConverter.ToUInt16(outputBuffers[colorIndex], i);
+                                    Uint16Divider.Y = (float)BitConverter.ToUInt16(buffers[thisShotSetting.orderIndex], i);
 
-                                    sixteenbitbytes = BitConverter.GetBytes(finalValue);
-                                    outputBuffers[colorIndex][i] = sixteenbitbytes[0];
-                                    outputBuffers[colorIndex][i+1] = sixteenbitbytes[1];
+
+                                    /*currentOutputValue = (double)BitConverter.ToUInt16(outputBuffers[colorIndex], i) / Uint16MaxValueDouble;
+                                    currentInputValue = (double)BitConverter.ToUInt16(buffers[thisShotSetting.orderIndex], i) / Uint16MaxValueDouble;*/
+                                    Uint16Divider = Vector2.Divide(Uint16Divider, Uint16MaxValueFloat);
+                                    currentOutputValue = Uint16Divider.X;
+                                    currentInputValue = Uint16Divider.Y;
+
+                                    //if(currentInputValue > maxValue) { maxValue = currentInputValue; }
+                                    isClipping = currentInputValue > clippingPoint;
+                                    if (!isClipping)
+                                    {
+                                        finalValue = 0;
+                                        if (currentInputValue > featherBottomIntensity)
+                                        {
+                                            inputIntensity = (featherRange - (clippingPoint - currentInputValue)) / featherRange;
+                                            currentInputValue /= effectiveMultiplier;
+                                            tmpValue = inputIntensity * currentInputValue + (1 - inputIntensity) * currentOutputValue;
+                                            finalValue = (UInt16)Math.Round(tmpValue * Uint16MaxValueFloat);
+                                        }
+                                        else
+                                        {
+                                            currentInputValue /= effectiveMultiplier;
+                                            finalValue = (UInt16)Math.Round(currentInputValue * Uint16MaxValueFloat);
+                                        }
+
+                                        sixteenbitbytes = BitConverter.GetBytes(finalValue);
+                                        outputBuffers[colorIndex][i] = sixteenbitbytes[0];
+                                        outputBuffers[colorIndex][i + 1] = sixteenbitbytes[1];
+                                    }
                                 }
                             }
+                            else
+                            {
 
+                                for (var i = 0; i < singleBufferLength; i += 2) // 16 bit steps
+                                {
+                                    Uint16Divider.X = (float)BitConverter.ToUInt16(outputBuffers[colorIndex], i);
+                                    Uint16Divider.Y = (float)BitConverter.ToUInt16(buffers[thisShotSetting.orderIndex], i);
+
+
+                                    /*currentOutputValue = (double)BitConverter.ToUInt16(outputBuffers[colorIndex], i) / Uint16MaxValueDouble;
+                                    currentInputValue = (double)BitConverter.ToUInt16(buffers[thisShotSetting.orderIndex], i) / Uint16MaxValueDouble;*/
+                                    Uint16Divider = Vector2.Divide(Uint16Divider, Uint16MaxValueFloat);
+                                    currentOutputValue = Uint16Divider.X;
+                                    currentInputValue = Uint16Divider.Y;
+
+                                    //if (currentInputValue > maxValue) { maxValue = currentInputValue; }
+                                    isClipping = currentInputValue > clippingPoint;
+                                    if (!isClipping)
+                                    {
+                                        finalValue = 0;
+                                        currentInputValue /= effectiveMultiplier;
+                                        finalValue = (UInt16)Math.Round(currentInputValue * Uint16MaxValueFloat);
+
+                                        sixteenbitbytes = BitConverter.GetBytes(finalValue);
+                                        outputBuffers[colorIndex][i] = sixteenbitbytes[0];
+                                        outputBuffers[colorIndex][i + 1] = sixteenbitbytes[1];
+                                    }
+                                }
+                            }
 
                         }
                         thisColorIndex++;
@@ -502,8 +542,8 @@ namespace RawMono2RGB
 
 
 
-                    
-            }
+
+            });
 
             //MessageBox.Show(maxValue.ToString());
 
