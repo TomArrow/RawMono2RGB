@@ -510,6 +510,11 @@ namespace RawMono2RGB
 
                                 for (var i = 0; i < singleBufferLength; i += 2) // 16 bit steps
                                 {
+                                    // Comments:
+                                    // You might want to use Buffer.BlockCopy to convert the array from raw bytes to unsigned shorts
+                                    // https://markheath.net/post/how-to-convert-byte-to-short-or-float
+                                    // Or: Span<ushort> a = MemoryMarshal.Cast<byte, ushort>(data)
+                                    // https://markheath.net/post/span-t-audio
                                     Uint16Divider.X = (float)BitConverter.ToUInt16(outputBuffers[colorIndex], i);
                                     Uint16Divider.Y = (float)BitConverter.ToUInt16(buffers[thisShotSetting.orderIndex], i);
 
@@ -869,7 +874,6 @@ namespace RawMono2RGB
         {
 
             //_totalFiles = filesInSourceFolder.Length;
-            _totalFiles = (int)Math.Floor(filesInSourceFolder.Length/3d);
 
             List<string[]> completeGroups = new List<string[]>();
 
@@ -901,8 +905,9 @@ namespace RawMono2RGB
             });
 
             int groupLength = shotSettings.Length;
+            _totalFiles = (int)Math.Floor(filesInSourceFolder.Length / (decimal)groupLength);
 
-            if(maxThreads == 0)
+            if (maxThreads == 0)
             {
                 maxThreads = Environment.ProcessorCount;
             }

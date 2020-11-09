@@ -149,7 +149,7 @@
 
                     <WrapPanel>
                         <Label ToolTip="The clipping point in the overexposed image at which the darker exposure is taken instead of the brighter. Necessary to set because possibly due to weirdness of ADCs a clipped pixel isn't always EXACTLY perfect white, only almost.">Clipping point</Label>
-                        <TextBox x:Name="clippingPoint_txt">0.99</TextBox>
+                        <TextBox x:Name="clippingPoint_txt">0.7</TextBox>
                     </WrapPanel>
 
                     <WrapPanel>
