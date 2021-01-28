@@ -70,7 +70,7 @@ namespace RawMono2RGB
         public MainWindow()
         {
 
-            new ColorManager.ICC.ChromaticityTagDataEntry();
+            //new ColorManager.ICC.ChromaticityTagDataEntry();
 
 
             InitializeComponent();
