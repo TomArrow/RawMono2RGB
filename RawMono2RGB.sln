@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RawMono2RGB", "RawMono2RGB\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ColorManager", "ext\NCM\ColorManager\ColorManager.csproj", "{80CE271C-3B13-4658-AFB8-26B481165E1C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{FB2A7460-95E6-4872-A2AC-0D309B44D6B5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -31,6 +33,14 @@ Global
 		{80CE271C-3B13-4658-AFB8-26B481165E1C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{80CE271C-3B13-4658-AFB8-26B481165E1C}.Release|x64.ActiveCfg = Release|Any CPU
 		{80CE271C-3B13-4658-AFB8-26B481165E1C}.Release|x64.Build.0 = Release|Any CPU
+		{FB2A7460-95E6-4872-A2AC-0D309B44D6B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FB2A7460-95E6-4872-A2AC-0D309B44D6B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FB2A7460-95E6-4872-A2AC-0D309B44D6B5}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FB2A7460-95E6-4872-A2AC-0D309B44D6B5}.Debug|x64.Build.0 = Debug|Any CPU
+		{FB2A7460-95E6-4872-A2AC-0D309B44D6B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FB2A7460-95E6-4872-A2AC-0D309B44D6B5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FB2A7460-95E6-4872-A2AC-0D309B44D6B5}.Release|x64.ActiveCfg = Release|Any CPU
+		{FB2A7460-95E6-4872-A2AC-0D309B44D6B5}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

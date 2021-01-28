@@ -197,7 +197,9 @@
                             <RadioButton x:Name="formatTif">Linear TIFF</RadioButton>
                             <RadioButton x:Name="formatExr" IsChecked="True">OpenEXR (Piz)</RadioButton>
                         </StackPanel>
+                        
                     </WrapPanel>
+                    <CheckBox IsChecked="True" x:Name="exrIntegrityVerification_check">EXR Integrity verification</CheckBox>
 
                     <WrapPanel>
                         <Label>Overwrite existing:</Label>

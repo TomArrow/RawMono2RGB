@@ -270,7 +270,7 @@ namespace RawMono2RGB
         private enum TARGETFORMAT { TIF,EXR};
 
 
-        private void ProcessRAW(string[] srcRGBTriplet, ShotSetting[] shotSettings,string targetFilename, TARGETFORMAT targetFormat, FORMAT inputFormat,int maxThreads, float HDRClippingPoint, float HDRFeatherMultiplier)
+        private void ProcessRAW(string[] srcRGBTriplet, ShotSetting[] shotSettings,string targetFilename, TARGETFORMAT targetFormat, FORMAT inputFormat,int maxThreads, float HDRClippingPoint, float HDRFeatherMultiplier,bool EXRIntegrityVerification)
         {
 
             int groupLength = shotSettings.Length;
@@ -363,6 +363,7 @@ namespace RawMono2RGB
             if(targetFormat == TARGETFORMAT.EXR)
             {
                 ResourceLimits.Thread = (ulong)maxThreads;
+                ResourceLimits.LimitMemory(new Percentage(90));
 
                 MagickReadSettings settings = new MagickReadSettings();
                 settings.Width = width;
@@ -373,15 +374,74 @@ namespace RawMono2RGB
                 iccWriter.WriteProfile(new ColorManager.ICC.ICCProfile());
                 */
 
-                using (var image = new MagickImage(buff, settings))
+                if (EXRIntegrityVerification)
                 {
-                    //ExifProfile profile = new ExifProfile();
-                    //profile.SetValue(ExifTag.UserComment, Encoding.ASCII.GetBytes(srcRGBTriplet[0] + "," + srcRGBTriplet[1] + "," + srcRGBTriplet[2]));
-                    //image.SetProfile(profile);
-                    image.Format = MagickFormat.Exr;
-                    image.Settings.Compression = CompressionMethod.Piz;
-                    image.Write(fileName);
+                    /*
+                     * Info on half float format: https://www.openexr.com/about.html
+                     */
+                    // What does this mean for precision of converting 16 bit integers to 16 bit floating point?
+                    // We need to know the maximum precision achievable to be able to tell rounding errors from actual integrity fails.
+                    // More info here: https://en.wikipedia.org/wiki/Half-precision_floating-point_format
+                    // Basically, precision at any given value is 11 bits or 2048 values.
+
+
+
+                    bool integrityCheckPassed = false;
+                    while (!integrityCheckPassed)
+                    {
+
+                        using (var image = new MagickImage(buff, settings))
+                        {
+                            //ExifProfile profile = new ExifProfile();
+                            //profile.SetValue(ExifTag.UserComment, Encoding.ASCII.GetBytes(srcRGBTriplet[0] + "," + srcRGBTriplet[1] + "," + srcRGBTriplet[2]));
+                            //image.SetProfile(profile);
+                            image.Format = MagickFormat.Exr;
+                            image.Settings.Compression = CompressionMethod.Piz;
+
+                            //image.Write(fileName);
+
+                            byte[] exrFile = image.ToByteArray();
+
+                            bool integrityCheckFailed = false;
+                            using (var reloadedImage = new MagickImage(exrFile))
+                            {
+
+                                reloadedImage.Depth = 16;
+                                reloadedImage.ColorSpace = ColorSpace.Undefined;
+                                byte[] reloadedImageBytes = reloadedImage.ToByteArray(MagickFormat.Rgb);
+
+                                integrityCheckFailed = integrityCheckFailed | !IntegrityChecker.VerifyIntegrityUInt16InHalfPrecisionFloat(buff,reloadedImageBytes);
+                            }
+                            if (integrityCheckFailed)
+                            {
+                                continue;
+                            } else
+                            {
+                                integrityCheckPassed = true;
+                                File.WriteAllBytes(fileName, exrFile);
+                            }
+
+
+                        }
+                    }
+                } else
+                {
+                    using (var image = new MagickImage(buff, settings))
+                    {
+                        //ExifProfile profile = new ExifProfile();
+                        //profile.SetValue(ExifTag.UserComment, Encoding.ASCII.GetBytes(srcRGBTriplet[0] + "," + srcRGBTriplet[1] + "," + srcRGBTriplet[2]));
+                        //image.SetProfile(profile);
+                        image.Format = MagickFormat.Exr;
+                        image.Settings.Compression = CompressionMethod.Piz;
+
+                        //image.Write(fileName);
+                        byte[] exrFile = image.ToByteArray();
+                        File.WriteAllBytes(fileName, exrFile);
+
+                    }
                 }
+
+                
             }
             else if (targetFormat == TARGETFORMAT.TIF)
             {
@@ -897,6 +957,7 @@ namespace RawMono2RGB
             bool overwriteExisting = false;
             float HDRClippingPoint = 0.99f;
             float HDRFeatherMultiplier = 1;
+            bool EXRIntegrityVerification = true;
             this.Dispatcher.Invoke(() =>
             {
                 frameDelay = 0;
@@ -911,6 +972,7 @@ namespace RawMono2RGB
                 overwriteExisting = !(bool)overwrite_no.IsChecked && (bool)overwrite_yes.IsChecked;
                 HDRClippingPoint = getHDRClippingpoint();
                 HDRFeatherMultiplier = getFeatherMultiplier();
+                EXRIntegrityVerification = (bool)exrIntegrityVerification_check.IsChecked;
             });
 
             int groupLength = shotSettings.Length;
@@ -981,6 +1043,11 @@ namespace RawMono2RGB
             _counterDone = 0;
             _counterSkippedExisting = 0;
 
+            if (EXRIntegrityVerification)
+            {
+                IntegrityChecker.BuildIntegrityVerificationAcceptableLossCache();
+            }
+
             Parallel.ForEach(completeGroups,
                 new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (currentGroup, loopState,index) =>
                     // foreach (string srcFileName in filesInSourceFolder)
@@ -1018,12 +1085,15 @@ namespace RawMono2RGB
                         return;
                     }
 
-                    ProcessRAW(currentGroup,shotSettings, fileName,targetFormat, inputFormat,maxThreads,HDRClippingPoint,HDRFeatherMultiplier);
+                    ProcessRAW(currentGroup,shotSettings, fileName,targetFormat, inputFormat,maxThreads,HDRClippingPoint,HDRFeatherMultiplier, EXRIntegrityVerification);
                     _counterDone++;
                     lock (countLock) { worker?.ReportProgress((int)percentage); }
                 });
-
-            txtStatus.Text = "Finished";
+            this.Dispatcher.Invoke(() =>
+            {
+                txtStatus.Text = "Finished";
+            });
+            
         }
 
         private void worker_ProgressChanged(object sender, ProgressChangedEventArgs e)
