@@ -179,6 +179,12 @@
     <EmbeddedResource Include="Costura64\Magick.Native-Q16-HDRI-OpenMP-x64.dll" />
     <EmbeddedResource Include="Costura64\vcomp140.dll" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ext\NCM\ColorManager\ColorManager.csproj">
+      <Project>{80ce271c-3b13-4658-afb8-26b481165e1c}</Project>
+      <Name>ColorManager</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>

@@ -1,0 +1,3 @@
+[submodule "ext/NCM"]
+	path = ext/NCM
+	url = https://github.com/JBildstein/NCM.git

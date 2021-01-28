@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.902
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30804.86
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RawMono2RGB", "RawMono2RGB\RawMono2RGB.csproj", "{98F3FD03-C026-4D27-98BB-BD74F4006B7C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ColorManager", "ext\NCM\ColorManager\ColorManager.csproj", "{80CE271C-3B13-4658-AFB8-26B481165E1C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,14 @@ Global
 		{98F3FD03-C026-4D27-98BB-BD74F4006B7C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{98F3FD03-C026-4D27-98BB-BD74F4006B7C}.Release|x64.ActiveCfg = Release|x64
 		{98F3FD03-C026-4D27-98BB-BD74F4006B7C}.Release|x64.Build.0 = Release|x64
+		{80CE271C-3B13-4658-AFB8-26B481165E1C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{80CE271C-3B13-4658-AFB8-26B481165E1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{80CE271C-3B13-4658-AFB8-26B481165E1C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{80CE271C-3B13-4658-AFB8-26B481165E1C}.Debug|x64.Build.0 = Debug|Any CPU
+		{80CE271C-3B13-4658-AFB8-26B481165E1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{80CE271C-3B13-4658-AFB8-26B481165E1C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{80CE271C-3B13-4658-AFB8-26B481165E1C}.Release|x64.ActiveCfg = Release|Any CPU
+		{80CE271C-3B13-4658-AFB8-26B481165E1C}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

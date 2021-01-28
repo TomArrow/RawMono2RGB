@@ -69,6 +69,10 @@ namespace RawMono2RGB
 
         public MainWindow()
         {
+
+            new ColorManager.ICC.ChromaticityTagDataEntry();
+
+
             InitializeComponent();
         }
 
@@ -364,6 +368,11 @@ namespace RawMono2RGB
                 settings.Width = width;
                 settings.Height = height;
                 settings.Format = MagickFormat.Rgb; // Correction, this is actually right, I had flipped RGB to BGR elsewhere in the code before. Fixed now.
+
+                /*ColorManager.ICC.ICCProfileWriter iccWriter = new ColorManager.ICC.ICCProfileWriter();
+                iccWriter.WriteProfile(new ColorManager.ICC.ICCProfile());
+                */
+
                 using (var image = new MagickImage(buff, settings))
                 {
                     //ExifProfile profile = new ExifProfile();
