@@ -269,6 +269,8 @@ namespace RawMono2RGB
 
         private enum TARGETFORMAT { TIF,EXR};
 
+        private int integrityCheckFailCount = 0;
+        private int integrityCheckRetries = 10;
 
         private void ProcessRAW(string[] srcRGBTriplet, ShotSetting[] shotSettings,string targetFilename, TARGETFORMAT targetFormat, FORMAT inputFormat,int maxThreads, float HDRClippingPoint, float HDRFeatherMultiplier,bool EXRIntegrityVerification)
         {
@@ -385,9 +387,10 @@ namespace RawMono2RGB
                     // Basically, precision at any given value is 11 bits or 2048 values.
 
 
-
+                    int integrityCheckFailCountLocal = 0;
                     bool integrityCheckPassed = false;
-                    while (!integrityCheckPassed)
+                    bool retriesExhausted = false;
+                    while (!integrityCheckPassed && !retriesExhausted)
                     {
 
                         using (var image = new MagickImage(buff, settings))
@@ -414,13 +417,25 @@ namespace RawMono2RGB
                             }
                             if (integrityCheckFailed)
                             {
+                                integrityCheckFailCount++;
+                                integrityCheckFailCountLocal++;
                                 continue;
                             } else
                             {
                                 integrityCheckPassed = true;
                                 File.WriteAllBytes(fileName, exrFile);
                             }
+                            if(integrityCheckFailCountLocal > integrityCheckRetries)
+                            {
+                                retriesExhausted = true;
+                                // At this point just write it into a subfolder and be done with it.
+                                string failedFolder = Path.GetDirectoryName(fileName) + Path.DirectorySeparatorChar +"FAILED"+ Path.DirectorySeparatorChar;
+                                Directory.CreateDirectory(failedFolder);
+                                string failedFile = failedFolder+Path.GetFileName(fileName);
 
+                                File.WriteAllBytes(failedFile, exrFile);
+
+                            }
 
                         }
                     }
@@ -662,6 +677,7 @@ namespace RawMono2RGB
                     targetFolder = sourceFolder;
                     txtTargetFolder.Text = targetFolder;
                 }
+
                 filesInSourceFolder = Directory.GetFiles(fbd.SelectedPath,"*.raw");
 
                 //Sorting
@@ -1048,6 +1064,8 @@ namespace RawMono2RGB
                 IntegrityChecker.BuildIntegrityVerificationAcceptableLossCache();
             }
 
+            integrityCheckFailCount = 0;
+
             Parallel.ForEach(completeGroups,
                 new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (currentGroup, loopState,index) =>
                     // foreach (string srcFileName in filesInSourceFolder)
@@ -1091,7 +1109,7 @@ namespace RawMono2RGB
                 });
             this.Dispatcher.Invoke(() =>
             {
-                txtStatus.Text = "Finished";
+                txtStatus.Text = "Finished. "+ integrityCheckFailCount+" integrity check fails";
             });
             
         }
@@ -1100,7 +1118,7 @@ namespace RawMono2RGB
         {
             // pbStatus.Value = e.ProgressPercentage;
             CurrentProgress = e.ProgressPercentage;
-            txtStatus.Text = $"Processed {_counterTotal} out of {_totalFiles}. {_counterDone} successful, {_counterSkippedExisting} skipped (file exists), {_counterSkippedRange} skipped (not in selected range)";
+            txtStatus.Text = $"Processed {_counterTotal} out of {_totalFiles}. {_counterDone} successful, {_counterSkippedExisting} skipped (file exists), {_counterSkippedRange} skipped (not in selected range), {integrityCheckFailCount} integrity check fails";
            
             //this.Dispatcher.BeginInvoke(new Action(() => { pbStatus.Value = e.ProgressPercentage; }));
         }
